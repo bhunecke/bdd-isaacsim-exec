@@ -1,5 +1,8 @@
 # SPDX-License-Identifier:  GPL-3.0-or-later
 from os.path import exists as os_exists
+import os
+import cv2
+import matplotlib.pyplot as plt
 from typing import Union
 import numpy as np
 from rdflib.namespace import NamespaceManager
@@ -22,6 +25,7 @@ from omni.isaac.core.articulations.articulation import Articulation
 from omni.isaac.core.utils.string import find_unique_string_name
 from omni.isaac.core.utils.stage import add_reference_to_stage, get_stage_units
 from omni.isaac.core.utils.prims import is_prim_path_valid
+from omni.isaac.sensor import Camera
 
 
 _CACHED_ASSET_ROOT = None
@@ -152,3 +156,83 @@ def create_rigid_prim_in_scene(
         return scene.add(correct_cls(name=obj_name, prim_path=prim_path, **prim_configs))
 
     raise RuntimeError(f"unhandled types for object'{model.id}': {model.model_types}")
+
+
+def setup_camera_in_scene(name: str, position: np.ndarray, orientation: np.ndarray, resolution: tuple) -> Camera:
+    """Setup camera in scene.
+
+    Args:
+        name (str): Name of the camera
+        position (np.ndarray): Position of the camera
+        rotation (np.ndarray): Rotation of the camera
+        resolution (tuple): Resolution of the camera
+
+    Returns:
+        Camera: Camera object
+    """
+    camera = Camera(
+        name=f"/World/{name}",
+        position=position,
+        orientation=orientation,
+        frequency=20,
+        resolution=resolution,
+    )
+    camera.initialize()
+    camera.add_motion_vectors_to_frame()
+    return camera
+
+def save_camera_image(camera: Camera, output_dir: str, file_name) -> np.ndarray:
+    """Save camera image to disk.
+
+    Args:
+        camera (Camera): Camera object
+        output_dir (str): Directory to save the image
+        file_name (str): Name of the image file
+
+    Returns:
+        np.ndarray: Image array
+    """
+    if not os_exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+
+    frame_path = os.path.join(output_dir, file_name)
+    frame = camera.get_rgba()[:, :, :3]
+    plt.imsave(frame_path, frame)
+    return frame
+
+def create_video_from_frames(output_dir, video_path, frame_rate=20):
+    """
+    Creates a video from a sequence of image frames stored in a directory.
+    Args:
+        output_dir (str): The directory containing the image frames. 
+                          Only files with a ".png" extension will be used.
+        video_path (str): The path where the output video file will be saved.
+        frame_rate (int, optional): The frame rate of the output video. Defaults to 20.
+    Returns:
+        str: The path to the created video file, or None if no frames were found.
+    Notes:
+        - The image frames are expected to have the same dimensions.
+        - The video will be encoded in MP4 format using the 'mp4v' codec.
+    """
+    frame_files = [f for f in os.listdir(output_dir) if f.endswith(".png")]
+    frame_files.sort()
+
+    if not frame_files:
+        print("No frames found to create a video.")
+        return
+
+    # Read the first frame to get the frame size
+    first_frame = cv2.imread(os.path.join(output_dir, frame_files[0]))
+    height, width, _ = first_frame.shape
+
+    # Define the video writer
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    video_writer = cv2.VideoWriter(video_path, fourcc, frame_rate, (width, height))
+
+    # Write each frame to the video
+    for frame_file in frame_files:
+        frame = cv2.imread(os.path.join(output_dir, frame_file))
+        video_writer.write(frame)
+
+    video_writer.release()
+    return video_path
