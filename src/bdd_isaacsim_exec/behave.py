@@ -503,9 +503,10 @@ def behaviour_isaac(context: Context, **kwargs):
         if frame_index % 3 == 0:
             save_camera_image(
                 camera=camera,
-                output_dir=os.path.join(home, "Desktop", "pickplace_rec", "frames"),
+                output_dir=os.path.join(home, "bdd_pickplace_rec", "frames"),
                 file_name=f"frame_{frame_index:04d}.png"
             )
+        frame_index += 1
         # observations
         obs = context.world.get_observations()
         # behaviour step
@@ -530,8 +531,8 @@ def behaviour_isaac(context: Context, **kwargs):
             loop_end += time_step_sec
     #TODO: move to after scenario
     create_video_from_frames(
-        frames_dir=os.path.join(home, "Desktop", "pickplace_rec", "frames"),
-        video_path=os.path.join(home, "Desktop", "pickplace_rec", "video.mp4")
+        frames_dir=os.path.join(home, "bdd_pickplace_rec", "frames"),
+        video_path=os.path.join(home, "bdd_pickplace_rec", "video.mp4")
     )
 
     context.bhv_observations = {
