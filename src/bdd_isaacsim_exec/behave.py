@@ -2,6 +2,8 @@
 from typing import Any
 import time
 import numpy as np
+import os
+from pathlib import Path
 from behave import use_fixture
 from behave.model import Scenario
 from behave.runner import Context
@@ -417,7 +419,8 @@ def move_safely_isaac(context: Context, **kwargs):
 
 def behaviour_isaac(context: Context, **kwargs):
     from bdd_isaacsim_exec.tasks import MeasurementType
-
+    from bdd_isaacsim_exec.utils import setup_camera_in_scene, save_camera_image, create_video_from_frames
+    
     params = load_str_params(param_names=[PARAM_AGN, PARAM_OBJ, PARAM_WS], **kwargs)
     context.task.set_params(
         agn_id_str=params[PARAM_AGN],
@@ -483,10 +486,26 @@ def behaviour_isaac(context: Context, **kwargs):
     now = time.process_time()
     loop_end = now + time_step_sec
     exec_times = []
+    #TODO: move to task
+    camera = setup_camera_in_scene(
+        name="camera_1",
+        resolution=(512, 512),
+        position=np.array([2.5, 0.0, 0.8]),
+        orientation=np.array([-1.51344388e-02, -8.58316564e-02, -1.49011611e-08,  9.96194698e-01])
+    )
+    frame_index = 0
+    home = Path.home()
     while context.simulation_app.is_running():
         if bhv.is_finished(context=context):
             break
         context.world.step(render=render)
+        # frame capture
+        if frame_index % 3 == 0:
+            save_camera_image(
+                camera=camera,
+                output_dir=os.path.join(home, "Desktop", "pickplace_rec", "frames"),
+                file_name=f"frame_{frame_index:04d}.png"
+            )
         # observations
         obs = context.world.get_observations()
         # behaviour step
@@ -509,6 +528,11 @@ def behaviour_isaac(context: Context, **kwargs):
                 break
         while loop_end < now:
             loop_end += time_step_sec
+    #TODO: move to after scenario
+    create_video_from_frames(
+        frames_dir=os.path.join(home, "Desktop", "pickplace_rec", "frames"),
+        video_path=os.path.join(home, "Desktop", "pickplace_rec", "video.mp4")
+    )
 
     context.bhv_observations = {
         "agn_speeds": agn_speeds,
