@@ -200,7 +200,7 @@ def save_camera_image(camera: Camera, output_dir: str, file_name) -> np.ndarray:
     plt.imsave(frame_path, frame)
     return frame
 
-def create_video_from_frames(output_dir, video_path, frame_rate=20):
+def create_video_from_frames(frames_dir, video_path, frame_rate=20):
     """
     Creates a video from a sequence of image frames stored in a directory.
     Args:
@@ -214,15 +214,14 @@ def create_video_from_frames(output_dir, video_path, frame_rate=20):
         - The image frames are expected to have the same dimensions.
         - The video will be encoded in MP4 format using the 'mp4v' codec.
     """
-    frame_files = [f for f in os.listdir(output_dir) if f.endswith(".png")]
+    frame_files = [f for f in os.listdir(frames_dir) if f.endswith(".png")]
     frame_files.sort()
 
     if not frame_files:
-        print("No frames found to create a video.")
-        return
+        raise ValueError(f"No frames found in directory: {frames_dir}")
 
     # Read the first frame to get the frame size
-    first_frame = cv2.imread(os.path.join(output_dir, frame_files[0]))
+    first_frame = cv2.imread(os.path.join(frames_dir, frame_files[0]))
     height, width, _ = first_frame.shape
 
     # Define the video writer
@@ -231,7 +230,7 @@ def create_video_from_frames(output_dir, video_path, frame_rate=20):
 
     # Write each frame to the video
     for frame_file in frame_files:
-        frame = cv2.imread(os.path.join(output_dir, frame_file))
+        frame = cv2.imread(os.path.join(frames_dir, frame_file))
         video_writer.write(frame)
 
     video_writer.release()
