@@ -419,7 +419,7 @@ def move_safely_isaac(context: Context, **kwargs):
 
 def behaviour_isaac(context: Context, **kwargs):
     from bdd_isaacsim_exec.tasks import MeasurementType
-    from bdd_isaacsim_exec.utils import setup_camera_in_scene, save_camera_image, create_video_from_frames
+    from bdd_isaacsim_exec.utils import setup_camera_in_scene, save_camera_image, create_video_from_frames, sanitize_name
     
     params = load_str_params(param_names=[PARAM_AGN, PARAM_OBJ, PARAM_WS], **kwargs)
     context.task.set_params(
@@ -495,6 +495,9 @@ def behaviour_isaac(context: Context, **kwargs):
     )
     frame_index = 0
     home = Path.home()
+    root_capture_folder = os.path.join(home, "bdd_isaacsim_exec_capture", sanitize_name(context.feature.name))
+    frames_dir = os.path.join(root_capture_folder, "tmp_frames")
+    video_path = os.path.join(root_capture_folder, f"{sanitize_name(context.scenario.name)}.mp4")
     while context.simulation_app.is_running():
         if bhv.is_finished(context=context):
             break
@@ -503,7 +506,7 @@ def behaviour_isaac(context: Context, **kwargs):
         if frame_index % 3 == 0:
             save_camera_image(
                 camera=camera,
-                output_dir=os.path.join(home, "bdd_pickplace_rec", "frames"),
+                output_dir=frames_dir,
                 file_name=f"frame_{frame_index:04d}.png"
             )
         frame_index += 1
@@ -531,8 +534,8 @@ def behaviour_isaac(context: Context, **kwargs):
             loop_end += time_step_sec
     #TODO: move to after scenario
     create_video_from_frames(
-        frames_dir=os.path.join(home, "bdd_pickplace_rec", "frames"),
-        video_path=os.path.join(home, "bdd_pickplace_rec", "video.mp4")
+        frames_dir=frames_dir,
+        video_path=video_path
     )
 
     context.bhv_observations = {

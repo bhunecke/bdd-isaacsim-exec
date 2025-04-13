@@ -1,6 +1,7 @@
 # SPDX-License-Identifier:  GPL-3.0-or-later
 from os.path import exists as os_exists
 import os
+import re
 import cv2
 import matplotlib.pyplot as plt
 from typing import Union
@@ -234,4 +235,22 @@ def create_video_from_frames(frames_dir, video_path, frame_rate=20):
         video_writer.write(frame)
 
     video_writer.release()
+
+    # Remove frames after video creation
+    for frame_file in frame_files:
+        os.remove(os.path.join(frames_dir, frame_file))
+
     return video_path
+
+def sanitize_name(name):
+    """
+    Sanitizes a string to make it safe for use in filenames or directory names.
+    Replaces all characters that are not alphanumeric, dashes, or underscores with underscores.
+
+    Args:
+        name (str): The input string to sanitize.
+
+    Returns:
+        str: The sanitized string.
+    """
+    return re.sub(r'[^a-zA-Z0-9-_]', '_', name)
