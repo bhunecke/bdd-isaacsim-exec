@@ -420,6 +420,7 @@ def move_safely_isaac(context: Context, **kwargs):
 def behaviour_isaac(context: Context, **kwargs):
     from bdd_isaacsim_exec.tasks import MeasurementType
     from bdd_isaacsim_exec.utils import setup_camera_in_scene, save_camera_image, create_video_from_frames, sanitize_name
+    from omni.isaac.core.utils.prims import get_prim_at_path
     
     params = load_str_params(param_names=[PARAM_AGN, PARAM_OBJ, PARAM_WS], **kwargs)
     context.task.set_params(
@@ -486,13 +487,13 @@ def behaviour_isaac(context: Context, **kwargs):
     now = time.process_time()
     loop_end = now + time_step_sec
     exec_times = []
-    #TODO: move to task
-    camera = setup_camera_in_scene(
-        name="camera_1",
-        resolution=(512, 512),
-        position=np.array([2.5, 0.0, 0.8]),
-        orientation=np.array([-1.51344388e-02, -8.58316564e-02, -1.49011611e-08,  9.96194698e-01])
-    )
+    # #TODO: move to task
+    # camera = setup_camera_in_scene(
+    #     name="camera_0",
+    #     resolution=(1077, 480),
+    #     position=np.array([5.8, 0.0, 1.3]),
+    #     orientation=np.array([-1.51344388e-02, -8.58316564e-02, -1.49011611e-08,  9.96194698e-01])
+    # )
     frame_index = 0
     home = Path.home()
     root_capture_folder = os.path.join(home, "bdd_isaacsim_exec_capture", sanitize_name(context.feature.name))
@@ -503,11 +504,11 @@ def behaviour_isaac(context: Context, **kwargs):
             break
         context.world.step(render=render)
         # frame capture
-        if frame_index % 3 == 0:
+        if frame_index % 4 == 0:
             save_camera_image(
-                camera=camera,
+                camera_prim="/World/Cameras/camera_1",
                 output_dir=frames_dir,
-                file_name=f"frame_{frame_index:04d}.png"
+                file_name=f"frame_{frame_index:05d}.png"
             )
         frame_index += 1
         # observations

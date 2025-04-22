@@ -182,7 +182,7 @@ def setup_camera_in_scene(name: str, position: np.ndarray, orientation: np.ndarr
     camera.add_motion_vectors_to_frame()
     return camera
 
-def save_camera_image(camera: Camera, output_dir: str, file_name) -> np.ndarray:
+def save_camera_image(camera_prim: str, output_dir: str, file_name) -> np.ndarray:
     """Save camera image to disk.
 
     Args:
@@ -193,6 +193,7 @@ def save_camera_image(camera: Camera, output_dir: str, file_name) -> np.ndarray:
     Returns:
         np.ndarray: Image array
     """
+    camera = Camera(prim_path=camera_prim)
     if not os_exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
