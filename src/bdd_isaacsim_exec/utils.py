@@ -182,7 +182,7 @@ def setup_camera_in_scene(name: str, position: np.ndarray, orientation: np.ndarr
     camera.add_motion_vectors_to_frame()
     return camera
 
-def save_camera_image(camera_prim: str, output_dir: str, file_name) -> np.ndarray:
+def save_camera_image(camera: Camera, capture_root_path: str, frame_index: int) -> np.ndarray:
     """Save camera image to disk.
 
     Args:
@@ -193,7 +193,8 @@ def save_camera_image(camera_prim: str, output_dir: str, file_name) -> np.ndarra
     Returns:
         np.ndarray: Image array
     """
-    camera = Camera(prim_path=camera_prim)
+    output_dir = os.path.join(capture_root_path, "tmp_frames")
+    file_name = f"frame_{frame_index:05d}.png"
     if not os_exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
@@ -202,7 +203,7 @@ def save_camera_image(camera_prim: str, output_dir: str, file_name) -> np.ndarra
     plt.imsave(frame_path, frame)
     return frame
 
-def create_video_from_frames(frames_dir, video_path, frame_rate=20):
+def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_rate: int = 20):
     """
     Creates a video from a sequence of image frames stored in a directory.
     Args:
@@ -216,6 +217,8 @@ def create_video_from_frames(frames_dir, video_path, frame_rate=20):
         - The image frames are expected to have the same dimensions.
         - The video will be encoded in MP4 format using the 'mp4v' codec.
     """
+    frames_dir = os.path.join(capture_root_path, "tmp_frames")
+    video_path = os.path.join(capture_root_path, f"{sanitize_name(scenario_name)}.mp4")
     frame_files = [f for f in os.listdir(frames_dir) if f.endswith(".png")]
     frame_files.sort()
 

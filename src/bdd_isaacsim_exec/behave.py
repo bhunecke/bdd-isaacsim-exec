@@ -72,6 +72,9 @@ def before_all_isaac(context: Context, headless: bool, time_step_sec: float):
     context.execution_model = ExecutionModel(graph=g)
     context.us_loader = UserStoryLoader(graph=g)
 
+    home = Path.home()
+    context.root_capture_folder = os.path.join(home, "bdd_isaacsim_exec_capture")
+
 
 def before_scenario_isaac(context: Context, scenario: Scenario):
     model_graph = getattr(context, "model_graph", None)
@@ -110,10 +113,27 @@ def before_scenario_isaac(context: Context, scenario: Scenario):
     print(f"**** Loaded Isaac Sim Task {task.name}")
     context.task = task
 
+    from bdd_isaacsim_exec.utils import setup_camera_in_scene
+
+    context.camera = setup_camera_in_scene(
+        name="camera_1",
+        resolution=(1077, 480),
+        position=np.array([5.8, 0.0, 1.3]),
+        orientation=np.array([-1.51344388e-02, -8.58316564e-02, -1.49011611e-08, 9.96194698e-01]),
+    )
+
 
 def after_scenario_isaac(context: Context):
     context.task.cleanup_scene_models()
     context.world.clear()
+
+    from bdd_isaacsim_exec.utils import create_video_from_frames
+
+    video_path = create_video_from_frames(
+        capture_root_path=context.root_capture_folder,
+        scenario_name=context.scenario.name,
+    )
+    print(f"*** Video saved to {video_path}")
 
 
 def given_objects_isaac(context: Context):
@@ -419,8 +439,7 @@ def move_safely_isaac(context: Context, **kwargs):
 
 def behaviour_isaac(context: Context, **kwargs):
     from bdd_isaacsim_exec.tasks import MeasurementType
-    from bdd_isaacsim_exec.utils import setup_camera_in_scene, save_camera_image, create_video_from_frames, sanitize_name
-    from omni.isaac.core.utils.prims import get_prim_at_path
+    from bdd_isaacsim_exec.utils import save_camera_image
     
     params = load_str_params(param_names=[PARAM_AGN, PARAM_OBJ, PARAM_WS], **kwargs)
     context.task.set_params(
@@ -487,18 +506,7 @@ def behaviour_isaac(context: Context, **kwargs):
     now = time.process_time()
     loop_end = now + time_step_sec
     exec_times = []
-    # #TODO: move to task
-    # camera = setup_camera_in_scene(
-    #     name="camera_0",
-    #     resolution=(1077, 480),
-    #     position=np.array([5.8, 0.0, 1.3]),
-    #     orientation=np.array([-1.51344388e-02, -8.58316564e-02, -1.49011611e-08,  9.96194698e-01])
-    # )
     frame_index = 0
-    home = Path.home()
-    root_capture_folder = os.path.join(home, "bdd_isaacsim_exec_capture", sanitize_name(context.feature.name))
-    frames_dir = os.path.join(root_capture_folder, "tmp_frames")
-    video_path = os.path.join(root_capture_folder, f"{sanitize_name(context.scenario.name)}.mp4")
     while context.simulation_app.is_running():
         if bhv.is_finished(context=context):
             break
@@ -506,9 +514,9 @@ def behaviour_isaac(context: Context, **kwargs):
         # frame capture
         if frame_index % 4 == 0:
             save_camera_image(
-                camera_prim="/World/Cameras/camera_1",
-                output_dir=frames_dir,
-                file_name=f"frame_{frame_index:05d}.png"
+                camera=context.camera,
+                capture_root_path=context.root_capture_folder,
+                frame_index=frame_index,
             )
         frame_index += 1
         # observations
@@ -533,11 +541,6 @@ def behaviour_isaac(context: Context, **kwargs):
                 break
         while loop_end < now:
             loop_end += time_step_sec
-    #TODO: move to after scenario
-    create_video_from_frames(
-        frames_dir=frames_dir,
-        video_path=video_path
-    )
 
     context.bhv_observations = {
         "agn_speeds": agn_speeds,

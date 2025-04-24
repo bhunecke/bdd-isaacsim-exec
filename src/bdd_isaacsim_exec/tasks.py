@@ -62,15 +62,7 @@ class PickPlace(BaseTask):
         self._task_params = {
             "objects": {"value": {}, "modifiable": True},
             "agents": {"value": {}, "modifiable": True},
-            "place_workspaces": {"value": {}, "modifiable": True},
-            "cameras": [
-                {
-                    "name": "camera_1",
-                    "resolution": [1077, 480],
-                    "position": [5.8, 0.0, 1.3],
-                    "orientation": [-1.51344388e-02, -8.58316564e-02, -1.49011611e-08,  9.96194698e-01]
-                }
-            ]
+            "place_workspaces": {"value": {}, "modifiable": True}
         }
         self._measurements = {}
         self._bb_cache = bounds_utils.create_bbox_cache()
@@ -162,20 +154,6 @@ class PickPlace(BaseTask):
                 agn_prim, Robot
             ), f"Prim for agn '{agn_id}' not a Isaac Robot instance"
             self._agn_prims[agn_id] = agn_prim
-
-
-        if self._task_params.get("cameras", None):
-            for camera in self._task_params["cameras"]:
-                camera = Camera(
-                    prim_path=f"/World/Cameras/{camera['name']}",
-                    position=camera["position"],
-                    orientation=camera["orientation"],
-                    frequency=20,
-                    resolution=camera["resolution"],
-                    # resolution=tuple(camera["resolution"][0], camera["resolution"][1])
-                )
-                camera.initialize()
-                camera.add_motion_vectors_to_frame()
 
     def set_params(self, **kwargs) -> None:
         """Set parameters values.
