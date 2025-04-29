@@ -49,7 +49,7 @@ def isaacsim_fixture(context: Context, **kwargs: Any):
     time_step_sec = context.time_step_sec
 
     print(f"*** STARTING ISAAC SIM, headless={headless}, unit_length={unit_length} ****")
-    context.simulation_app = SimulationApp({"headless": headless})
+    context.simulation_app = SimulationApp({"headless": headless, "enable_cameras": True})
 
     from omni.isaac.core import World
 

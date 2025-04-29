@@ -44,7 +44,7 @@ def before_all(context: Context):
             sys.exit(1)
 
     context.model_graph = g
-    before_all_isaac(context=context, headless=False, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
+    before_all_isaac(context=context, headless=True, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
 
 
 def before_feature(context: Context, feature: Feature):
