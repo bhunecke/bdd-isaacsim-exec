@@ -45,11 +45,20 @@ def isaacsim_fixture(context: Context, **kwargs: Any):
     from isaacsim import SimulationApp
 
     unit_length = kwargs.get("unit_length", 1.0)
-    headless = context.headless
+    render_type = context.render_type
+    if render_type == "headless":
+        context.headless = True
+        config = { "headless": True }
+    elif render_type == "hide_ui":
+        context.headless = False
+        config = { "hide_ui": True }
+    elif render_type == "normal":
+        context.headless = False
+        config = { "headless": False }
     time_step_sec = context.time_step_sec
 
-    print(f"*** STARTING ISAAC SIM, headless={headless}, unit_length={unit_length} ****")
-    context.simulation_app = SimulationApp({"headless": headless, "enable_cameras": True})
+    print(f"*** STARTING ISAAC SIM, render_type={render_type} unit_length={unit_length} ****")
+    context.simulation_app = SimulationApp(config)
 
     from omni.isaac.core import World
 
@@ -61,8 +70,8 @@ def isaacsim_fixture(context: Context, **kwargs: Any):
     context.simulation_app.close()
 
 
-def before_all_isaac(context: Context, headless: bool, time_step_sec: float):
-    context.headless = headless
+def before_all_isaac(context: Context, render_type: str, time_step_sec: float):
+    context.render_type = render_type
     context.time_step_sec = time_step_sec
     use_fixture(isaacsim_fixture, context, unit_length=1.0)
 
