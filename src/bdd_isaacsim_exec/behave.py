@@ -121,6 +121,7 @@ def before_scenario_isaac(context: Context, scenario: Scenario):
         position=np.array([5.8, 0.0, 1.3]),
         orientation=np.array([-1.51344388e-02, -8.58316564e-02, -1.49011611e-08, 9.96194698e-01]),
     )
+    context.frame_index = 0
 
 
 def after_scenario_isaac(context: Context):
@@ -506,19 +507,18 @@ def behaviour_isaac(context: Context, **kwargs):
     now = time.process_time()
     loop_end = now + time_step_sec
     exec_times = []
-    frame_index = 0
     while context.simulation_app.is_running():
         if bhv.is_finished(context=context):
             break
         context.world.step(render=render)
         # frame capture
-        if frame_index % 4 == 0:
+        if context.frame_index % 4 == 0:
             save_camera_image(
                 camera=context.camera,
                 capture_root_path=context.root_capture_folder,
-                frame_index=frame_index,
+                frame_index=context.frame_index,
             )
-        frame_index += 1
+        context.frame_index += 1
         # observations
         obs = context.world.get_observations()
         # behaviour step
