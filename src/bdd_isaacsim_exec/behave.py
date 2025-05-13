@@ -123,13 +123,29 @@ def before_scenario_isaac(context: Context, scenario: Scenario):
     context.task = task
 
     from bdd_isaacsim_exec.utils import setup_camera_in_scene
+    import omni.isaac.core.utils.numpy.rotations as rot_utils
 
-    context.camera = setup_camera_in_scene(
-        name="camera_1",
+    context.cameras = list()
+    context.cameras.append(setup_camera_in_scene(
+        name="camera_top",
         resolution=(1077, 480),
-        position=np.array([5.8, 0.0, 1.3]),
-        orientation=np.array([-1.51344388e-02, -8.58316564e-02, -1.49011611e-08, 9.96194698e-01]),
-    )
+        position=np.array([0.0, 0.0, 2.5]),
+        orientation=rot_utils.euler_angles_to_quats(np.array([0, 0, 0]), degrees=True),
+    ))
+    context.cameras.append(setup_camera_in_scene(
+        name="camera_front",
+        resolution=(1077, 480),
+        position=np.array([0.0, -5.0, 1.0]),
+        orientation=rot_utils.euler_angles_to_quats(np.array([90, 0, 0]), degrees=True),
+    ))
+    context.cameras.append(setup_camera_in_scene(
+        name="camera_isometric",
+        resolution=(1077, 480),
+        position=np.array([3.0, -7.5, 3.5]),
+        orientation=rot_utils.euler_angles_to_quats(np.array([72, 20, 5]), degrees=True),
+        #position=np.array([5.8, 0.0, 1.3]),
+        #orientation=np.array([-1.51344388e-02, -8.58316564e-02, -1.49011611e-08, 9.96194698e-01]),
+    ))
     context.frame_index = 0
 
 
@@ -139,11 +155,12 @@ def after_scenario_isaac(context: Context):
 
     from bdd_isaacsim_exec.utils import create_video_from_frames
 
-    video_path = create_video_from_frames(
-        capture_root_path=context.root_capture_folder,
-        scenario_name=context.scenario.name,
-    )
-    print(f"*** Video saved to {video_path}")
+    for i in range(len(context.cameras)):
+        video_path = create_video_from_frames(
+            capture_root_path=os.path.join(context.root_capture_folder, context.cameras[i].name),
+            scenario_name=context.scenario.name,
+        )
+        print(f"*** Video saved to {video_path}")
 
 
 def given_objects_isaac(context: Context):
@@ -522,11 +539,12 @@ def behaviour_isaac(context: Context, **kwargs):
         context.world.step(render=render)
         # frame capture
         if context.frame_index % 4 == 0:
-            save_camera_image(
-                camera=context.camera,
-                capture_root_path=context.root_capture_folder,
-                frame_index=context.frame_index,
-            )
+            for i in range(len(context.cameras)):
+                save_camera_image(
+                    camera=context.cameras[i],
+                    capture_root_path=os.path.join(context.root_capture_folder, context.cameras[i].name),
+                    frame_index=context.frame_index,
+                )
         context.frame_index += 1
         # observations
         obs = context.world.get_observations()

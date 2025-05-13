@@ -173,6 +173,7 @@ def setup_camera_in_scene(name: str, position: np.ndarray, orientation: np.ndarr
     """
     camera = Camera(
         prim_path=f"/World/Cameras/{name}",
+        name=name,
         position=position,
         orientation=orientation,
         frequency=20,
