@@ -129,22 +129,20 @@ def before_scenario_isaac(context: Context, scenario: Scenario):
     context.cameras.append(setup_camera_in_scene(
         name="camera_top",
         resolution=(1077, 480),
-        position=np.array([0.0, 0.0, 2.5]),
-        orientation=rot_utils.euler_angles_to_quats(np.array([0, 0, 0]), degrees=True),
+        position=np.array([0.3, 0.0, 7.5]),
+        orientation=rot_utils.euler_angles_to_quats(np.array([0, 90, 180]), degrees=True),
     ))
     context.cameras.append(setup_camera_in_scene(
         name="camera_front",
         resolution=(1077, 480),
-        position=np.array([0.0, -5.0, 1.0]),
-        orientation=rot_utils.euler_angles_to_quats(np.array([90, 0, 0]), degrees=True),
+        position=np.array([7.0, 0.0, 0.5]),
+        orientation=rot_utils.euler_angles_to_quats(np.array([0, 0, 180]), degrees=True),
     ))
     context.cameras.append(setup_camera_in_scene(
         name="camera_isometric",
         resolution=(1077, 480),
-        position=np.array([3.0, -7.5, 3.5]),
-        orientation=rot_utils.euler_angles_to_quats(np.array([72, 20, 5]), degrees=True),
-        #position=np.array([5.8, 0.0, 1.3]),
-        #orientation=np.array([-1.51344388e-02, -8.58316564e-02, -1.49011611e-08, 9.96194698e-01]),
+        position=np.array([5.8, 0.0, 1.3]),
+        orientation=np.array([-1.51344388e-02, -8.58316564e-02, -1.49011611e-08, 9.96194698e-01]),
     ))
     context.frame_index = 0
 
