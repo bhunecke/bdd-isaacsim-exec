@@ -1,5 +1,5 @@
 # SPDX-License-Identifier:  GPL-3.0-or-later
-from typing import Any
+from typing import Any, Literal
 import time
 import numpy as np
 import os
@@ -70,7 +70,7 @@ def isaacsim_fixture(context: Context, **kwargs: Any):
     context.simulation_app.close()
 
 
-def before_all_isaac(context: Context, render_type: str, time_step_sec: float):
+def before_all_isaac(context: Context, render_type: Literal["headless", "hide_ui", "normal"], time_step_sec: float):
     context.render_type = render_type
     context.time_step_sec = time_step_sec
     use_fixture(isaacsim_fixture, context, unit_length=1.0)
@@ -141,8 +141,8 @@ def before_scenario_isaac(context: Context, scenario: Scenario):
     context.cameras.append(setup_camera_in_scene(
         name="camera_isometric",
         resolution=(1077, 480),
-        position=np.array([5.8, 0.0, 1.3]),
-        orientation=np.array([-1.51344388e-02, -8.58316564e-02, -1.49011611e-08, 9.96194698e-01]),
+        position=np.array([5.5, 1.5, 2.0]),
+        orientation=np.array([-0.14311696, -0.15081383, -0.02560492,  0.97781241]),
     ))
     context.frame_index = 0
 
