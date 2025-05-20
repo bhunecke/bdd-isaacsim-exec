@@ -70,8 +70,9 @@ def isaacsim_fixture(context: Context, **kwargs: Any):
     context.simulation_app.close()
 
 
-def before_all_isaac(context: Context, render_type: Literal["headless", "hide_ui", "normal"], time_step_sec: float):
+def before_all_isaac(context: Context, render_type: Literal["headless", "hide_ui", "normal"], enable_capture: bool, time_step_sec: float):
     context.render_type = render_type
+    context.enable_capture = enable_capture
     context.time_step_sec = time_step_sec
     use_fixture(isaacsim_fixture, context, unit_length=1.0)
 
@@ -153,12 +154,13 @@ def after_scenario_isaac(context: Context):
 
     from bdd_isaacsim_exec.utils import create_video_from_frames
 
-    for i in range(len(context.cameras)):
-        video_path = create_video_from_frames(
-            capture_root_path=os.path.join(context.root_capture_folder, context.cameras[i].name),
-            scenario_name=context.scenario.name,
-        )
-        print(f"*** Video saved to {video_path}")
+    if context.enable_capture:
+        for i in range(len(context.cameras)):
+            video_path = create_video_from_frames(
+                capture_root_path=os.path.join(context.root_capture_folder, context.cameras[i].name),
+                scenario_name=context.scenario.name,
+            )
+            print(f"*** Video saved to {video_path}")
 
 
 def given_objects_isaac(context: Context):
@@ -536,14 +538,15 @@ def behaviour_isaac(context: Context, **kwargs):
             break
         context.world.step(render=render)
         # frame capture
-        if context.frame_index % 4 == 0:
-            for i in range(len(context.cameras)):
-                save_camera_image(
-                    camera=context.cameras[i],
-                    capture_root_path=os.path.join(context.root_capture_folder, context.cameras[i].name),
-                    frame_index=context.frame_index,
-                )
-        context.frame_index += 1
+        if context.enable_capture:
+            if context.frame_index % 4 == 0:
+                for i in range(len(context.cameras)):
+                    save_camera_image(
+                        camera=context.cameras[i],
+                        capture_root_path=os.path.join(context.root_capture_folder, context.cameras[i].name),
+                        frame_index=context.frame_index,
+                    )
+            context.frame_index += 1
         # observations
         obs = context.world.get_observations()
         # behaviour step
