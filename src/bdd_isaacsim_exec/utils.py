@@ -220,7 +220,7 @@ def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_r
         - The video will be encoded in MP4 format using the 'mp4v' codec.
     """
     frames_dir = os.path.join(capture_root_path, "tmp_frames")
-    video_path = os.path.join(capture_root_path, f"{sanitize_name(scenario_name)}.mp4")
+    video_path = os.path.join(capture_root_path, f"{get_valid_var_name(scenario_name)}.mp4")
     frame_files = [f for f in os.listdir(frames_dir) if f.endswith(".jpg")]
     frame_files.sort()
 
@@ -247,16 +247,3 @@ def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_r
         os.remove(os.path.join(frames_dir, frame_file))
 
     return video_path
-
-def sanitize_name(name):
-    """
-    Sanitizes a string to make it safe for use in filenames or directory names.
-    Replaces all characters that are not alphanumeric, dashes, or underscores with underscores.
-
-    Args:
-        name (str): The input string to sanitize.
-
-    Returns:
-        str: The sanitized string.
-    """
-    return re.sub(r'[^a-zA-Z0-9-_]', '_', name)

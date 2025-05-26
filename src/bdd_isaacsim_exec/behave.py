@@ -3,7 +3,6 @@ from typing import Any, Literal
 import time
 import numpy as np
 import os
-from pathlib import Path
 from behave import use_fixture
 from behave.model import Scenario
 from behave.runner import Context
@@ -82,8 +81,7 @@ def before_all_isaac(context: Context, render_type: Literal["headless", "hide_ui
     context.execution_model = ExecutionModel(graph=g)
     context.us_loader = UserStoryLoader(graph=g)
 
-    home = Path.home()
-    context.root_capture_folder = os.path.join(home, "bdd_isaacsim_exec_capture")
+    context.root_capture_folder = os.path.join(context.root_path, "capture")
 
 
 def before_scenario_isaac(context: Context, scenario: Scenario):
@@ -539,13 +537,12 @@ def behaviour_isaac(context: Context, **kwargs):
         context.world.step(render=render)
         # frame capture
         if context.enable_capture:
-            if context.frame_index % 6 == 0:
-                for i in range(len(context.cameras)):
-                    save_camera_image(
-                        camera=context.cameras[i],
-                        capture_root_path=os.path.join(context.root_capture_folder, context.cameras[i].name),
-                        frame_index=context.frame_index,
-                    )
+            for i in range(len(context.cameras)):
+                save_camera_image(
+                    camera=context.cameras[i],
+                    capture_root_path=os.path.join(context.root_capture_folder, context.cameras[i].name),
+                    frame_index=context.frame_index,
+                )
             context.frame_index += 1
         # observations
         obs = context.world.get_observations()
