@@ -44,7 +44,8 @@ def before_all(context: Context):
             sys.exit(1)
 
     context.model_graph = g
-    before_all_isaac(context=context, render_type="hide_ui", enable_capture=True, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
+    context.root_path = os.path.dirname(__file__)
+    before_all_isaac(context=context, render_type="normal", enable_capture=True, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
 
 
 def before_feature(context: Context, feature: Feature):
@@ -62,24 +63,19 @@ def after_feature(context: Context, feature: Feature):
 
 def before_scenario(context: Context, scenario: Scenario):
     context.log_data[scenario.name] = {"clauses": []}
-    context.scenario_start_time = time.process_time()
     before_scenario_isaac(context, scenario)
 
 
 def after_scenario(context: Context, scenario: Scenario):
-    scr_exec_time = time.process_time() - context.scenario_start_time
-    context.log_data[scenario.name]["exec_time"] = scr_exec_time
+    context.log_data[scenario.name]["exec_time"] = scenario.duration
     after_scenario_isaac(context)
 
 
 def before_step(context: Context, step: Step):
     context.step_debug_info = {"name": step.name, "keyword": step.keyword, "fail_info": {}}
-    step_start = time.process_time()
-    context.step_start = step_start
 
 
 def after_step(context: Context, step: Step):
-    step_exec_time = time.process_time() - context.step_start
-    context.step_debug_info["exec_time"] = step_exec_time
+    context.step_debug_info["exec_time"] = step.duration
     context.step_debug_info["status"] = step.status.name
     context.log_data[context.scenario.name]["clauses"].append(context.step_debug_info)
