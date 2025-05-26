@@ -539,7 +539,7 @@ def behaviour_isaac(context: Context, **kwargs):
         context.world.step(render=render)
         # frame capture
         if context.enable_capture:
-            if context.frame_index % 4 == 0:
+            if context.frame_index % 6 == 0:
                 for i in range(len(context.cameras)):
                     save_camera_image(
                         camera=context.cameras[i],

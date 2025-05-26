@@ -3,6 +3,7 @@ from os.path import exists as os_exists
 import os
 import re
 import cv2
+import imageio
 import matplotlib.pyplot as plt
 from typing import Union
 import numpy as np
@@ -195,13 +196,13 @@ def save_camera_image(camera: Camera, capture_root_path: str, frame_index: int) 
         np.ndarray: Image array
     """
     output_dir = os.path.join(capture_root_path, "tmp_frames")
-    file_name = f"frame_{frame_index:05d}.png"
+    file_name = f"frame_{frame_index:05d}.jpg"
     if not os_exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
     frame_path = os.path.join(output_dir, file_name)
     frame = camera.get_rgba()[:, :, :3]
-    plt.imsave(frame_path, frame)
+    imageio.imwrite(frame_path, frame)
     return frame
 
 def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_rate: int = 20):
@@ -209,7 +210,7 @@ def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_r
     Creates a video from a sequence of image frames stored in a directory.
     Args:
         output_dir (str): The directory containing the image frames. 
-                          Only files with a ".png" extension will be used.
+                          Only files with a ".jpg" extension will be used.
         video_path (str): The path where the output video file will be saved.
         frame_rate (int, optional): The frame rate of the output video. Defaults to 20.
     Returns:
@@ -220,7 +221,7 @@ def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_r
     """
     frames_dir = os.path.join(capture_root_path, "tmp_frames")
     video_path = os.path.join(capture_root_path, f"{sanitize_name(scenario_name)}.mp4")
-    frame_files = [f for f in os.listdir(frames_dir) if f.endswith(".png")]
+    frame_files = [f for f in os.listdir(frames_dir) if f.endswith(".jpg")]
     frame_files.sort()
 
     if not frame_files:
