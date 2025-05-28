@@ -9,6 +9,7 @@ from behave.runner import Context
 from rdflib import Graph, URIRef
 from rdf_utils.uri import try_expand_curie
 from rdf_utils.models.python import load_py_module_attr
+from rdf_utils.naming import get_valid_var_name
 from bdd_dsl.behave import (
     PARAM_AGN,
     PARAM_EVT,
@@ -81,8 +82,6 @@ def before_all_isaac(context: Context, render_type: Literal["headless", "hide_ui
     context.execution_model = ExecutionModel(graph=g)
     context.us_loader = UserStoryLoader(graph=g)
 
-    context.root_capture_folder = os.path.join(context.root_path, "capture")
-
 
 def before_scenario_isaac(context: Context, scenario: Scenario):
     model_graph = getattr(context, "model_graph", None)
@@ -153,12 +152,19 @@ def after_scenario_isaac(context: Context):
     from bdd_isaacsim_exec.utils import create_video_from_frames
 
     if context.enable_capture:
-        for i in range(len(context.cameras)):
+        context.log_data[context.scenario.name]["cameras"] = []
+        for camera in context.cameras:
             video_path = create_video_from_frames(
-                capture_root_path=os.path.join(context.root_capture_folder, context.cameras[i].name),
+                capture_root_path=os.path.join(context.root_capture_folder, camera.name),
                 scenario_name=context.scenario.name,
             )
             print(f"*** Video saved to {video_path}")
+            context.log_data[context.scenario.name]["cameras"].append({
+                "name": camera.name,
+                # "resolution": camera.get_resolution(),
+                # "world_pose": camera.get_world_pose(),
+                "video_path": video_path,
+            })
 
 
 def given_objects_isaac(context: Context):

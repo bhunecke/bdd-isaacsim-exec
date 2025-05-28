@@ -44,18 +44,23 @@ def before_all(context: Context):
             sys.exit(1)
 
     context.model_graph = g
-    context.root_path = os.path.dirname(__file__)
+    context.exec_timestamp = time.strftime('%Y%m%d-%H%M%S')
     before_all_isaac(context=context, render_type="normal", enable_capture=True, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
 
 
 def before_feature(context: Context, feature: Feature):
     context.log_data = {}
+    context.root_capture_folder = os.path.join(
+        os.path.dirname(__file__),
+        "capture",
+        f"capture-{get_valid_var_name(feature.name)}-{context.exec_timestamp}"
+    )
 
 
 def after_feature(context: Context, feature: Feature):
     log_data_file = os.path.join(
         LOG_DIR,
-        f"log_data-{get_valid_var_name(feature.name)}-{time.strftime('%Y%m%d-%H%M%S')}.json",
+        f"log_data-{get_valid_var_name(feature.name)}-{context.exec_timestamp}.json",
     )
     with open(log_data_file, "w") as file:
         file.write(json.dumps(context.log_data))
