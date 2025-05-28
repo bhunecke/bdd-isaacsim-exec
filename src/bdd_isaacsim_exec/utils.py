@@ -195,7 +195,7 @@ def save_camera_image(camera: Camera, capture_root_path: str, frame_index: int) 
     Returns:
         np.ndarray: Image array
     """
-    output_dir = os.path.join(capture_root_path, "tmp_frames")
+    output_dir = os.path.join(capture_root_path, "video_frames")
     file_name = f"frame_{frame_index:05d}.jpg"
     if not os_exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
@@ -205,7 +205,7 @@ def save_camera_image(camera: Camera, capture_root_path: str, frame_index: int) 
     imageio.imwrite(frame_path, frame)
     return frame
 
-def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_rate: int = 20):
+def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_rate: int = 20, cleanup_frames: bool = False):
     """
     Creates a video from a sequence of image frames stored in a directory.
     Args:
@@ -219,7 +219,7 @@ def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_r
         - The image frames are expected to have the same dimensions.
         - The video will be encoded in MP4 format using the 'mp4v' codec.
     """
-    frames_dir = os.path.join(capture_root_path, "tmp_frames")
+    frames_dir = os.path.join(capture_root_path, "video_frames")
     video_path = os.path.join(capture_root_path, f"{get_valid_var_name(scenario_name)}.mp4")
     frame_files = [f for f in os.listdir(frames_dir) if f.endswith(".jpg")]
     frame_files.sort()
@@ -243,7 +243,9 @@ def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_r
     video_writer.release()
 
     # Remove frames after video creation
-    for frame_file in frame_files:
-        os.remove(os.path.join(frames_dir, frame_file))
+    if cleanup_frames:
+        print(f"Removing frames from {frames_dir} after video creation.")
+        for frame_file in frame_files:
+            os.remove(os.path.join(frames_dir, frame_file))
 
     return video_path

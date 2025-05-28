@@ -143,28 +143,34 @@ def before_scenario_isaac(context: Context, scenario: Scenario):
         orientation=np.array([-0.14311696, -0.15081383, -0.02560492,  0.97781241]),
     ))
     context.frame_index = 0
+    context.scenario_capture_folder = os.path.join(
+        context.root_capture_folder,
+        get_valid_var_name(scenario.name),
+    )
 
 
 def after_scenario_isaac(context: Context):
-    context.task.cleanup_scene_models()
-    context.world.clear()
-
+    from omni.isaac.core.utils.prims import get_prim_at_path
     from bdd_isaacsim_exec.utils import create_video_from_frames
 
     if context.enable_capture:
         context.log_data[context.scenario.name]["cameras"] = []
         for camera in context.cameras:
             video_path = create_video_from_frames(
-                capture_root_path=os.path.join(context.root_capture_folder, camera.name),
+                capture_root_path=os.path.join(context.scenario_capture_folder, camera.name),
                 scenario_name=context.scenario.name,
             )
             print(f"*** Video saved to {video_path}")
+            # camera_prim = get_prim_at_path(f"/World/Cameras/{camera.name}")
             context.log_data[context.scenario.name]["cameras"].append({
                 "name": camera.name,
-                # "resolution": camera.get_resolution(),
-                # "world_pose": camera.get_world_pose(),
+                # "resolution": camera_prim.get_resolution(),
+                # "world_pose": camera_prim.get_world_pose(),
                 "video_path": video_path,
             })
+
+    context.task.cleanup_scene_models()
+    context.world.clear()
 
 
 def given_objects_isaac(context: Context):
@@ -546,7 +552,7 @@ def behaviour_isaac(context: Context, **kwargs):
             for i in range(len(context.cameras)):
                 save_camera_image(
                     camera=context.cameras[i],
-                    capture_root_path=os.path.join(context.root_capture_folder, context.cameras[i].name),
+                    capture_root_path=os.path.join(context.scenario_capture_folder, context.cameras[i].name),
                     frame_index=context.frame_index,
                 )
             context.frame_index += 1
@@ -584,10 +590,10 @@ def behaviour_isaac(context: Context, **kwargs):
         speed_min = np.min(agn_speeds)
         speed_max = np.max(agn_speeds)
         context.step_debug_info["ee_speed"] = {}
-        context.step_debug_info["ee_speed"]["mean"] = float(speed_mean)
-        context.step_debug_info["ee_speed"]["std"] = float(speed_std)
-        context.step_debug_info["ee_speed"]["min"] = float(speed_min)
-        context.step_debug_info["ee_speed"]["max"] = float(speed_max)
+        context.step_debug_info["ee_speed"]["mean"] = "NaN" if np.isnan(speed_mean) else float(speed_mean)
+        context.step_debug_info["ee_speed"]["std"] = "NaN" if np.isnan(speed_std) else float(speed_std)
+        context.step_debug_info["ee_speed"]["min"] = "NaN" if np.isnan(speed_min) else float(speed_min)
+        context.step_debug_info["ee_speed"]["max"] = "NaN" if np.isnan(speed_max) else float(speed_max)
         print(
             "\n\n*** Agent speed statistics: "
             + f" mean={speed_mean:.5f}, std={speed_std:.5f},"
