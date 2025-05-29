@@ -52,7 +52,7 @@ def before_feature(context: Context, feature: Feature):
     context.log_data = {}
     context.root_capture_folder = os.path.join(
         os.path.dirname(__file__),
-        "capture",
+        "captures",
         f"capture-{get_valid_var_name(feature.name)}-{context.exec_timestamp}"
     )
 
@@ -67,7 +67,7 @@ def after_feature(context: Context, feature: Feature):
 
 
 def before_scenario(context: Context, scenario: Scenario):
-    context.log_data[scenario.name] = {"clauses": []}
+    context.log_data[scenario.name] = {"clauses": [], "cameras": []}
     before_scenario_isaac(context, scenario)
 
 

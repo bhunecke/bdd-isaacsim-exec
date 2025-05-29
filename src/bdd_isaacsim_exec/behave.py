@@ -154,7 +154,6 @@ def after_scenario_isaac(context: Context):
     from bdd_isaacsim_exec.utils import create_video_from_frames
 
     if context.enable_capture:
-        context.log_data[context.scenario.name]["cameras"] = []
         for camera in context.cameras:
             video_path = create_video_from_frames(
                 capture_root_path=os.path.join(context.scenario_capture_folder, camera.name),
