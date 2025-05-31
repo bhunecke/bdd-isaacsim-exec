@@ -12,10 +12,6 @@ from rdf_utils.naming import get_valid_var_name
 from bdd_isaacsim_exec.behave import before_all_isaac, before_scenario_isaac, after_scenario_isaac
 
 
-LOG_DIR = os.path.join(os.path.dirname(__file__), "logs")
-os.makedirs(name=LOG_DIR, exist_ok=True)
-
-
 MODELS = {
     f"{URL_SECORO_M}/acceptance-criteria/bdd/agents/isaac-sim.agn.json": "json-ld",
     f"{URL_SECORO_M}/acceptance-criteria/bdd/scenes/isaac-agents.scene.json": "json-ld",
@@ -55,11 +51,12 @@ def before_feature(context: Context, feature: Feature):
         "captures",
         f"capture-{get_valid_var_name(feature.name)}-{context.exec_timestamp}"
     )
+    os.makedirs(name=context.root_capture_folder, exist_ok=True)
 
 
 def after_feature(context: Context, feature: Feature):
     log_data_file = os.path.join(
-        LOG_DIR,
+        context.root_capture_folder,
         f"log_data-{get_valid_var_name(feature.name)}-{context.exec_timestamp}.json",
     )
     with open(log_data_file, "w") as file:
