@@ -184,16 +184,16 @@ def setup_camera_in_scene(name: str, position: np.ndarray, orientation: np.ndarr
     camera.add_motion_vectors_to_frame()
     return camera
 
-def save_camera_image(camera: Camera, capture_root_path: str, frame_index: int) -> np.ndarray:
+def save_camera_image(camera: Camera, capture_root_path: str, frame_index: int) -> str:
     """Save camera image to disk.
 
     Args:
         camera (Camera): Camera object
-        output_dir (str): Directory to save the image
-        file_name (str): Name of the image file
+        capture_root_path (str): Root path for saving captures
+        frame_index (int): Frame index for naming the image file
 
     Returns:
-        np.ndarray: Image array
+        str: The name of the saved image file
     """
     output_dir = os.path.join(capture_root_path, "video_frames")
     file_name = f"frame_{frame_index:05d}.jpg"
@@ -203,7 +203,7 @@ def save_camera_image(camera: Camera, capture_root_path: str, frame_index: int) 
     frame_path = os.path.join(output_dir, file_name)
     frame = camera.get_rgba()[:, :, :3]
     imageio.imwrite(frame_path, frame)
-    return frame
+    return file_name
 
 def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_rate: int = 20, cleanup_frames: bool = False):
     """

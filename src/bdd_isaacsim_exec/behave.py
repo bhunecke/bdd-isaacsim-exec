@@ -166,6 +166,7 @@ def after_scenario_isaac(context: Context):
                 # "resolution": camera_prim.get_resolution(),
                 # "world_pose": camera_prim.get_world_pose(),
                 "video_path": video_path,
+                "frame_count": context.frame_index,
             })
 
     context.task.cleanup_scene_models()
@@ -476,7 +477,7 @@ def move_safely_isaac(context: Context, **kwargs):
 def behaviour_isaac(context: Context, **kwargs):
     from bdd_isaacsim_exec.tasks import MeasurementType
     from bdd_isaacsim_exec.utils import save_camera_image
-    
+
     params = load_str_params(param_names=[PARAM_AGN, PARAM_OBJ, PARAM_WS], **kwargs)
     context.task.set_params(
         agn_id_str=params[PARAM_AGN],
@@ -549,11 +550,23 @@ def behaviour_isaac(context: Context, **kwargs):
         # frame capture
         if context.enable_capture:
             for i in range(len(context.cameras)):
-                save_camera_image(
-                    camera=context.cameras[i],
-                    capture_root_path=os.path.join(context.scenario_capture_folder, context.cameras[i].name),
+                camera = context.cameras[i]
+                capture_root_path = os.path.join(context.scenario_capture_folder, camera.name)
+                filename = save_camera_image(
+                    camera=camera,
+                    capture_root_path=capture_root_path,
                     frame_index=context.frame_index,
                 )
+                timestamp_epoch = time.time()
+                scenario_start_time = context.log_data[context.scenario.name]["start_time"]
+                timestamp_rel = timestamp_epoch - scenario_start_time
+                context.frame_logs.append({
+                    "camera": camera.name,
+                    "frame_id": context.frame_index,
+                    "filename": filename,
+                    "timestamp_epoch": timestamp_epoch,
+                    "timestamp_rel": timestamp_rel
+                })
             context.frame_index += 1
         # observations
         obs = context.world.get_observations()
