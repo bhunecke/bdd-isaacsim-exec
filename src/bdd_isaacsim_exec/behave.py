@@ -606,6 +606,7 @@ def behaviour_isaac(context: Context, **kwargs):
         context.step_debug_info["ee_speed"]["std"] = "NaN" if np.isnan(speed_std) else float(speed_std)
         context.step_debug_info["ee_speed"]["min"] = "NaN" if np.isnan(speed_min) else float(speed_min)
         context.step_debug_info["ee_speed"]["max"] = "NaN" if np.isnan(speed_max) else float(speed_max)
+        context.step_debug_info["ws_displacement_sum"] = ws_displacement_sums
         print(
             "\n\n*** Agent speed statistics: "
             + f" mean={speed_mean:.5f}, std={speed_std:.5f},"
