@@ -160,11 +160,11 @@ def after_scenario_isaac(context: Context):
                 scenario_name=context.scenario.name,
             )
             print(f"*** Video saved to {video_path}")
-            # camera_prim = get_prim_at_path(f"/World/Cameras/{camera.name}")
             context.log_data[context.scenario.name]["cameras"].append({
                 "name": camera.name,
-                # "resolution": camera_prim.get_resolution(),
-                # "world_pose": camera_prim.get_world_pose(),
+                "resolution": str(camera.get_resolution()),
+                "position": f"[{', '.join(str(x) for x in camera.get_world_pose()[0])}]",
+                "orientation": f"[{', '.join(str(x) for x in camera.get_world_pose()[1])}]",
                 "video_path": video_path,
                 "frame_count": context.frame_index,
             })
@@ -557,15 +557,26 @@ def behaviour_isaac(context: Context, **kwargs):
                     capture_root_path=capture_root_path,
                     frame_index=context.frame_index,
                 )
-                timestamp_epoch = time.time()
-                scenario_start_time = context.log_data[context.scenario.name]["start_time"]
-                timestamp_rel = timestamp_epoch - scenario_start_time
+                timestamp_unix = time.time()
+                scenario_start_time = context.log_data[context.scenario.name]["start_time_unix"]
+                timestamp_rel = timestamp_unix - scenario_start_time
+                obs = context.world.get_observations()
+                for ws_id in place_ws_ids:
+                    ws_position = obs[ws_obj_map[ws_id]]["position"]
+                    if ws_id in ws_previous_positions:
+                        ws_displacement = np.linalg.norm(ws_position - ws_previous_positions[ws_id])
+                        ws_displacement_sums[ws_id] += ws_displacement
                 context.frame_logs.append({
                     "camera": camera.name,
                     "frame_id": context.frame_index,
                     "filename": filename,
-                    "timestamp_epoch": timestamp_epoch,
-                    "timestamp_rel": timestamp_rel
+                    "timestamp_unix": timestamp_unix,
+                    "timestamp_rel": timestamp_rel,
+                    "ee_speed": str(np.linalg.norm(obs[agn_ids[0]]["ee_linear_velocities"])),
+                    "ws_displacement": {
+                        ws_id.n3(graph.namespace_manager): ws_displacement_sums[ws_id]
+                        for ws_id in place_ws_ids
+                    },
                 })
             context.frame_index += 1
         # observations
@@ -606,7 +617,10 @@ def behaviour_isaac(context: Context, **kwargs):
         context.step_debug_info["ee_speed"]["std"] = "NaN" if np.isnan(speed_std) else float(speed_std)
         context.step_debug_info["ee_speed"]["min"] = "NaN" if np.isnan(speed_min) else float(speed_min)
         context.step_debug_info["ee_speed"]["max"] = "NaN" if np.isnan(speed_max) else float(speed_max)
-        context.step_debug_info["ws_displacement_sum"] = ws_displacement_sums
+        context.step_debug_info["ws_displacement"] = {
+            ws_id.n3(graph.namespace_manager): ws_displacement_sums[ws_id]
+            for ws_id in place_ws_ids
+        }
         print(
             "\n\n*** Agent speed statistics: "
             + f" mean={speed_mean:.5f}, std={speed_std:.5f},"

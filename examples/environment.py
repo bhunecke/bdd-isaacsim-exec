@@ -65,16 +65,16 @@ def after_feature(context: Context, feature: Feature):
 
 def before_scenario(context: Context, scenario: Scenario):
     context.log_data[scenario.name] = {"clauses": [], "cameras": []}
-    context.log_data[scenario.name]["start_time"] = time.time()
+    context.log_data[scenario.name]["start_time_unix"] = time.time()
     context.frame_logs = []
     before_scenario_isaac(context, scenario)
 
 
 def after_scenario(context: Context, scenario: Scenario):
     end_time = time.time()
-    context.log_data[scenario.name]["end_time"] = end_time
-    context.log_data[scenario.name]["exec_time"] = end_time - context.log_data[scenario.name]["start_time"]
-    context.log_data[scenario.name]["bhv_exec_time"] = scenario.duration
+    context.log_data[scenario.name]["end_time_unix"] = end_time
+    context.log_data[scenario.name]["exec_time"] = end_time - context.log_data[scenario.name]["start_time_unix"]
+    context.log_data[scenario.name]["behave_exec_time"] = scenario.duration
     frame_data_file = os.path.join(
         context.scenario_capture_folder,
         f"frame_data-{get_valid_var_name(scenario.name)}-{context.exec_timestamp}.json",
