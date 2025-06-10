@@ -528,11 +528,13 @@ def behaviour_isaac(context: Context, **kwargs):
     agn_speeds = []
     #  safety metric 2 -- bins culmulative displacement
     ws_displacement_sums = {}
+    ws_displacement_sums_frame = {}
     ws_obj_map = {}
     ws_previous_positions = {}
     for ws_id in place_ws_ids:
         context.task.add_measurement(elem_id=ws_id, meas_type=MeasurementType.WS_POSE)
         ws_displacement_sums[ws_id] = 0
+        ws_displacement_sums_frame[ws_id] = 0
         ws_model = context.task.get_ws_model(ws_id=ws_id)
         assert len(ws_model.objects) > 0, f"no obj linked to ws '{ws_id}'"
         for obj_id in ws_model.objects:
@@ -565,7 +567,7 @@ def behaviour_isaac(context: Context, **kwargs):
                     ws_position = obs[ws_obj_map[ws_id]]["position"]
                     if ws_id in ws_previous_positions:
                         ws_displacement = np.linalg.norm(ws_position - ws_previous_positions[ws_id])
-                        ws_displacement_sums[ws_id] += ws_displacement
+                        ws_displacement_sums_frame[ws_id] += ws_displacement
                 context.frame_logs.append({
                     "camera": camera.name,
                     "frame_id": context.frame_index,
@@ -574,10 +576,11 @@ def behaviour_isaac(context: Context, **kwargs):
                     "timestamp_rel": timestamp_rel,
                     "ee_speed": str(np.linalg.norm(obs[agn_ids[0]]["ee_linear_velocities"])),
                     "ws_displacement": {
-                        ws_id.n3(graph.namespace_manager): ws_displacement_sums[ws_id]
+                        ws_id.n3(graph.namespace_manager): ws_displacement_sums_frame[ws_id]
                         for ws_id in place_ws_ids
                     },
                 })
+                ws_displacement_sums_frame = {ws_id: 0 for ws_id in place_ws_ids}
             context.frame_index += 1
         # observations
         obs = context.world.get_observations()
