@@ -167,12 +167,14 @@ def after_scenario_isaac(context: Context):
                 scenario_name=context.scenario.name,
             )
             print(f"*** Video saved to {video_path}")
+
+            video_relative_path = os.path.join(*os.path.normpath(video_path).split(os.sep)[-3:])
             context.log_data[context.scenario.name]["cameras"].append({
                 "name": camera.name,
                 "resolution": str(camera.get_resolution()),
                 "position": f"[{', '.join(str(x) for x in camera.get_world_pose()[0])}]",
                 "orientation": f"[{', '.join(str(x) for x in camera.get_world_pose()[1])}]",
-                "video_path": video_path,
+                "video_path": video_relative_path,
                 "frame_count": context.frame_index,
             })
 
