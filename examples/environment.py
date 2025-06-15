@@ -60,7 +60,7 @@ def after_feature(context: Context, feature: Feature):
         f"log_data-{get_valid_var_name(feature.name)}-{context.exec_timestamp}.json",
     )
     with open(log_data_file, "w") as file:
-        file.write(json.dumps(context.log_data))
+        file.write(json.dumps(context.log_data, indent=2))
 
 
 def before_scenario(context: Context, scenario: Scenario):
@@ -80,7 +80,7 @@ def after_scenario(context: Context, scenario: Scenario):
         f"frame_data-{get_valid_var_name(scenario.name)}-{context.exec_timestamp}.json",
     )
     with open(frame_data_file, "w") as file:
-        file.write(json.dumps(context.frame_logs))
+        file.write(json.dumps(context.frame_logs, indent=2))
     after_scenario_isaac(context)
 
 
