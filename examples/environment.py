@@ -79,6 +79,7 @@ def after_scenario(context: Context, scenario: Scenario):
         context.scenario_capture_folder,
         f"frame_data-{get_valid_var_name(scenario.name)}-{context.exec_timestamp}.json",
     )
+    os.makedirs(os.path.dirname(frame_data_file), exist_ok=True)
     with open(frame_data_file, "w") as file:
         file.write(json.dumps(context.frame_logs, indent=2))
     after_scenario_isaac(context)

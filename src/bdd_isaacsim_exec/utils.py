@@ -7,6 +7,7 @@ import imageio
 import matplotlib.pyplot as plt
 from typing import Union
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor
 from rdflib.namespace import NamespaceManager
 from rdf_utils.naming import get_valid_var_name
 from rdf_utils.models.python import URI_PY_TYPE_MODULE_ATTR, import_attr_from_model
@@ -183,6 +184,43 @@ def setup_camera_in_scene(name: str, position: np.ndarray, orientation: np.ndarr
     camera.initialize()
     camera.add_motion_vectors_to_frame()
     return camera
+
+def capture_camera_image(camera: Camera) -> np.ndarray:
+    """Capture camera image.
+
+    Args:
+        camera (Camera): Camera object
+
+    Returns:
+        np.ndarray: Captured image as a numpy array
+    """
+    rgba = camera.get_rgba()
+    if rgba is None:
+        raise RuntimeError(f"Camera {camera.name} did not return an image")
+    
+    # Convert RGBA to RGB
+    rgb_image = rgba[:, :, :3]
+    return rgb_image
+
+def save_single_frame(i: int, frame: np.ndarray, output_dir: str):
+    file_name = f"frame_{i:05d}.jpg"
+    frame_path = os.path.join(output_dir, file_name)
+    imageio.imwrite(frame_path, frame)
+
+def save_frames(frames: list, capture_root_path: str, threads: int = 8):
+    """Save frames to disk.
+
+    Args:
+        frames (list): List of frames to save
+        capture_root_path (str): Root path for saving captures
+    """
+    output_dir = os.path.join(capture_root_path, "video_frames")
+    if not os_exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+
+    with ThreadPoolExecutor(max_workers=threads) as executor:
+        for i, frame in enumerate(frames):
+            executor.submit(save_single_frame, i, frame, output_dir)
 
 def save_camera_image(camera: Camera, capture_root_path: str, frame_index: int) -> str:
     """Save camera image to disk.

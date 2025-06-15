@@ -147,14 +147,21 @@ def before_scenario_isaac(context: Context, scenario: Scenario):
         context.root_capture_folder,
         get_valid_var_name(scenario.name),
     )
+    context.scenario_frames = {camera.name: [] for camera in context.cameras}
 
 
 def after_scenario_isaac(context: Context):
     from omni.isaac.core.utils.prims import get_prim_at_path
-    from bdd_isaacsim_exec.utils import create_video_from_frames
+    from bdd_isaacsim_exec.utils import save_frames, create_video_from_frames
 
     if context.enable_capture:
         for camera in context.cameras:
+            save_frames(
+                frames=context.scenario_frames[camera.name],
+                capture_root_path=os.path.join(context.scenario_capture_folder, camera.name)
+            )
+            context.scenario_frames[camera.name] = []
+            print(f"*** Frames saved for camera '{camera.name}'")
             video_path = create_video_from_frames(
                 capture_root_path=os.path.join(context.scenario_capture_folder, camera.name),
                 scenario_name=context.scenario.name,
@@ -476,7 +483,7 @@ def move_safely_isaac(context: Context, **kwargs):
 
 def behaviour_isaac(context: Context, **kwargs):
     from bdd_isaacsim_exec.tasks import MeasurementType
-    from bdd_isaacsim_exec.utils import save_camera_image
+    from bdd_isaacsim_exec.utils import capture_camera_image
 
     params = load_str_params(param_names=[PARAM_AGN, PARAM_OBJ, PARAM_WS], **kwargs)
     context.task.set_params(
@@ -553,12 +560,7 @@ def behaviour_isaac(context: Context, **kwargs):
         if context.enable_capture:
             for i in range(len(context.cameras)):
                 camera = context.cameras[i]
-                capture_root_path = os.path.join(context.scenario_capture_folder, camera.name)
-                filename = save_camera_image(
-                    camera=camera,
-                    capture_root_path=capture_root_path,
-                    frame_index=context.frame_index,
-                )
+                context.scenario_frames[camera.name].append(capture_camera_image(camera))
                 timestamp_unix = time.time()
                 scenario_start_time = context.log_data[context.scenario.name]["start_time_unix"]
                 timestamp_rel = timestamp_unix - scenario_start_time
@@ -571,7 +573,7 @@ def behaviour_isaac(context: Context, **kwargs):
                 context.frame_logs.append({
                     "camera": camera.name,
                     "frame_id": context.frame_index,
-                    "filename": filename,
+                    "filename": f"frame_{context.frame_index:05d}.jpg",
                     "timestamp_unix": timestamp_unix,
                     "timestamp_rel": timestamp_rel,
                     "ee_speed": str(np.linalg.norm(obs[agn_ids[0]]["ee_linear_velocities"])),
