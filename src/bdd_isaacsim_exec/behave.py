@@ -171,9 +171,9 @@ def after_scenario_isaac(context: Context):
             video_relative_path = os.path.join(*os.path.normpath(video_path).split(os.sep)[-3:])
             context.log_data[context.scenario.name]["cameras"].append({
                 "name": camera.name,
-                "resolution": str(camera.get_resolution()),
-                "position": f"[{', '.join(str(x) for x in camera.get_world_pose()[0])}]",
-                "orientation": f"[{', '.join(str(x) for x in camera.get_world_pose()[1])}]",
+                "resolution": np.array(camera.get_resolution()).tolist(),
+                "position": np.array(camera.get_world_pose()[0]).tolist(),
+                "orientation": np.array(camera.get_world_pose()[1]).tolist(),
                 "video_path": video_relative_path,
                 "frame_count": context.frame_index,
             })
@@ -578,7 +578,7 @@ def behaviour_isaac(context: Context, **kwargs):
                     "filename": f"frame_{context.frame_index:05d}.jpg",
                     "timestamp_unix": timestamp_unix,
                     "timestamp_rel": timestamp_rel,
-                    "ee_speed": str(np.linalg.norm(obs[agn_ids[0]]["ee_linear_velocities"])),
+                    "ee_speed": float(np.linalg.norm(obs[agn_ids[0]]["ee_linear_velocities"])),
                     "ws_displacement": {
                         ws_id.n3(graph.namespace_manager): ws_displacement_sums_frame[ws_id]
                         for ws_id in place_ws_ids
