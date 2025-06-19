@@ -1,6 +1,7 @@
 # SPDX-License-Identifier:  GPL-3.0-or-later
 from typing import Any
 import time
+import os
 import numpy as np
 from behave import use_fixture
 from behave.model import Scenario
@@ -37,7 +38,7 @@ PANDA_MAX_EE_SPEED_MEAN = 0.50051
 PANDA_MAX_EE_SPEED_STD = 0.22451
 PANDA_SPEED_THRESHOLD = PANDA_MAX_EE_SPEED_MEAN + 2 * PANDA_MAX_EE_SPEED_STD
 SPEED_THRESHOLD = 1.1
-
+USE_LIVESTREAM = os.getenv("ISAAC_LIVESTREAM", "0") == "1"
 
 def isaacsim_fixture(context: Context, **kwargs: Any):
     from isaacsim import SimulationApp
@@ -46,8 +47,35 @@ def isaacsim_fixture(context: Context, **kwargs: Any):
     headless = context.headless
     time_step_sec = context.time_step_sec
 
-    print(f"*** STARTING ISAAC SIM, headless={headless}, unit_length={unit_length} ****")
-    context.simulation_app = SimulationApp({"headless": headless})
+    if USE_LIVESTREAM:
+        print("*** STARTING ISAAC SIM WITH LIVESTREAM ***")
+        config = {
+            "width": 1280,
+            "height": 720,
+            "window_width": 1920,
+            "window_height": 1080,
+            "headless": True,
+            "hide_ui": False,
+            "renderer": "RayTracedLighting",
+            "display_options": 3286,
+        }
+        context.simulation_app = SimulationApp(launch_config=config)
+
+        # Enable GUI for livestream visibility
+        context.simulation_app.set_setting("/app/window/drawMouse", True)
+        context.simulation_app.set_setting("/app/livestream/proto", "ws")
+        context.simulation_app.set_setting("/ngx/enabled", False)
+
+        from omni.isaac.core.utils.extensions import enable_extension
+        
+        # Enable WebRTC Livestream extension
+        # Default URL: http://localhost:8211/streaming/webrtc-client/
+        # update the localhost with the ip of system to access it on other systems on the same network
+        enable_extension("omni.services.streamclient.webrtc")
+        
+    else:
+        print(f"*** STARTING ISAAC SIM, headless={headless}, unit_length={unit_length} ****")
+        context.simulation_app = SimulationApp({"headless": headless})
 
     from omni.isaac.core import World
 
@@ -486,7 +514,10 @@ def behaviour_isaac(context: Context, **kwargs):
     while context.simulation_app.is_running():
         if bhv.is_finished(context=context):
             break
-        context.world.step(render=render)
+        if USE_LIVESTREAM:
+            context.world.step(render=True)
+        else:
+            context.world.step(render=render)
         # observations
         obs = context.world.get_observations()
         # behaviour step
