@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import yaml
 import json
 from json import JSONDecodeError
 from behave.model import Feature, Scenario, Step
@@ -35,6 +36,7 @@ DEFAULT_ISAAC_PHYSICS_DT_SEC = 1.0 / 60.0
 
 def before_all(context: Context):
     install_resolver()
+    read_config_file(context)
     g = ConjunctiveGraph()
     for url, fmt in MODELS.items():
         try:
@@ -44,8 +46,31 @@ def before_all(context: Context):
             sys.exit(1)
 
     context.model_graph = g
-    before_all_isaac(context=context, headless=True, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
+    if context.use_livestream:
+        # override headless mode if livestream is enabled
+        context.headless = True
+        context.render = False
+    else:
+        context.render = not context.headless
+    before_all_isaac(context=context, headless=context.headless, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
 
+def read_config_file(context, filename="config.yaml"):
+    config_path = os.path.join(os.path.dirname(__file__), filename)
+
+    if not os.path.exists(config_path):
+        print(f"Config file '{config_path}' does not exist.")
+        return
+
+    with open(config_path, "r") as file:
+        try:
+            config = yaml.safe_load(file)
+            if config and isinstance(config, dict):
+                for key, value in config.items():
+                    if not isinstance(key, (int, float)):
+                        print("adding config key:", key)
+                        setattr(context, key, value)
+        except yaml.YAMLError as e:
+            print(f"Error reading config file '{config_path}': {e}")
 
 def before_feature(context: Context, feature: Feature):
     context.log_data = {}

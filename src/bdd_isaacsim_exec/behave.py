@@ -1,7 +1,6 @@
 # SPDX-License-Identifier:  GPL-3.0-or-later
 from typing import Any
 import time
-import os
 import numpy as np
 from behave import use_fixture
 from behave.model import Scenario
@@ -38,7 +37,7 @@ PANDA_MAX_EE_SPEED_MEAN = 0.50051
 PANDA_MAX_EE_SPEED_STD = 0.22451
 PANDA_SPEED_THRESHOLD = PANDA_MAX_EE_SPEED_MEAN + 2 * PANDA_MAX_EE_SPEED_STD
 SPEED_THRESHOLD = 1.1
-USE_LIVESTREAM = os.getenv("ISAAC_LIVESTREAM", "0") == "1"
+
 
 def isaacsim_fixture(context: Context, **kwargs: Any):
     from isaacsim import SimulationApp
@@ -47,35 +46,8 @@ def isaacsim_fixture(context: Context, **kwargs: Any):
     headless = context.headless
     time_step_sec = context.time_step_sec
 
-    if USE_LIVESTREAM:
-        print("*** STARTING ISAAC SIM WITH LIVESTREAM ***")
-        config = {
-            "width": 1280,
-            "height": 720,
-            "window_width": 1920,
-            "window_height": 1080,
-            "headless": True,
-            "hide_ui": False,
-            "renderer": "RayTracedLighting",
-            "display_options": 3286,
-        }
-        context.simulation_app = SimulationApp(launch_config=config)
-
-        # Enable GUI for livestream visibility
-        context.simulation_app.set_setting("/app/window/drawMouse", True)
-        context.simulation_app.set_setting("/app/livestream/proto", "ws")
-        context.simulation_app.set_setting("/ngx/enabled", False)
-
-        from omni.isaac.core.utils.extensions import enable_extension
-        
-        # Enable WebRTC Livestream extension
-        # Default URL: http://localhost:8211/streaming/webrtc-client/
-        # update the localhost with the ip of system to access it on other systems on the same network
-        enable_extension("omni.services.streamclient.webrtc")
-        
-    else:
-        print(f"*** STARTING ISAAC SIM, headless={headless}, unit_length={unit_length} ****")
-        context.simulation_app = SimulationApp({"headless": headless})
+    print(f"*** STARTING ISAAC SIM, headless={headless}, unit_length={unit_length} ****")
+    context.simulation_app = SimulationApp({"headless": headless})
 
     from omni.isaac.core import World
 
@@ -87,10 +59,54 @@ def isaacsim_fixture(context: Context, **kwargs: Any):
     context.simulation_app.close()
 
 
+def isaacsim_livestream_fixture(context: Context, **kwargs: Any):
+    from isaacsim import SimulationApp
+
+    unit_length = kwargs.get("unit_length", 1.0)
+    time_step_sec = context.time_step_sec
+    
+    print("*** STARTING ISAAC SIM WITH LIVESTREAM ***")
+    config = {
+        "width": 1280,
+        "height": 720,
+        "window_width": 1920,
+        "window_height": 1080,
+        "headless": True,
+        "hide_ui": False,
+        "renderer": "RayTracedLighting",
+        "display_options": 3286,
+    }
+    context.simulation_app = SimulationApp(launch_config=config)
+
+    # Enable GUI for livestream visibility
+    context.simulation_app.set_setting("/app/window/drawMouse", True)
+    context.simulation_app.set_setting("/app/livestream/proto", "ws")
+    context.simulation_app.set_setting("/ngx/enabled", False)
+
+    from omni.isaac.core.utils.extensions import enable_extension
+
+    # Enable WebRTC Livestream extension
+    # Default URL: http://localhost:8211/streaming/webrtc-client/
+    # Update the localhost with the ip of system to access it on other systems on the same network
+    # here: http://<host_system_ip>:8211/streaming/webrtc-demo/?server=<host_system_ip>
+    enable_extension("omni.services.streamclient.webrtc")
+
+    from omni.isaac.core import World
+
+    context.world = World(stage_units_in_meters=unit_length, physics_dt=time_step_sec)
+
+    yield context.simulation_app
+
+    print("*** CLOSING ISAAC SIM ****")
+    context.simulation_app.close()
+
 def before_all_isaac(context: Context, headless: bool, time_step_sec: float):
     context.headless = headless
     context.time_step_sec = time_step_sec
-    use_fixture(isaacsim_fixture, context, unit_length=1.0)
+    if context.use_livestream:
+        use_fixture(isaacsim_livestream_fixture, context, unit_length=1.0)
+    else:
+        use_fixture(isaacsim_fixture, context, unit_length=1.0)
 
     g = getattr(context, "model_graph", None)
     assert g is not None, "'model_graph' attribute not found in context"
@@ -482,7 +498,7 @@ def behaviour_isaac(context: Context, **kwargs):
     for uri in place_ws_ids:
         assert isinstance(uri, URIRef), f"unexpected ws param: {uri}"
 
-    render = not context.headless
+    render = context.render
 
     bhv = behaviour_model.behaviour
     assert isinstance(
@@ -514,10 +530,7 @@ def behaviour_isaac(context: Context, **kwargs):
     while context.simulation_app.is_running():
         if bhv.is_finished(context=context):
             break
-        if USE_LIVESTREAM:
-            context.world.step(render=True)
-        else:
-            context.world.step(render=render)
+        context.world.step(render=render)
         # observations
         obs = context.world.get_observations()
         # behaviour step
