@@ -59,6 +59,7 @@ def isaacsim_fixture(context: Context, **kwargs: Any):
     context.simulation_app.close()
 
 
+
 def isaacsim_livestream_fixture(context: Context, **kwargs: Any):
     from isaacsim import SimulationApp
 
@@ -67,22 +68,20 @@ def isaacsim_livestream_fixture(context: Context, **kwargs: Any):
     
     print("*** STARTING ISAAC SIM WITH LIVESTREAM ***")
     config = {
-        "width": 1280,
-        "height": 720,
-        "window_width": 1920,
-        "window_height": 1080,
-        "headless": True,
-        "hide_ui": False,
-        "renderer": "RayTracedLighting",
-        "display_options": 3286,
+        "width": context.width,
+        "height": context.height,
+        "window_width": context.window_width,
+        "window_height": context.window_height,
+        "headless": context.headless,
+        "hide_ui": context.hide_ui,
+        "renderer": context.renderer,
+        "display_options": context.display_options,
+        "/app/window/drawMouse": context.draw_mouse,
+        "/app/livestream/proto": context.protocol,
+        "/ngx/enabled": context.enable_nginx,
     }
     context.simulation_app = SimulationApp(launch_config=config)
-
-    # Enable GUI for livestream visibility
-    context.simulation_app.set_setting("/app/window/drawMouse", True)
-    context.simulation_app.set_setting("/app/livestream/proto", "ws")
-    context.simulation_app.set_setting("/ngx/enabled", False)
-
+    
     from omni.isaac.core.utils.extensions import enable_extension
 
     # Enable WebRTC Livestream extension
@@ -498,8 +497,6 @@ def behaviour_isaac(context: Context, **kwargs):
     for uri in place_ws_ids:
         assert isinstance(uri, URIRef), f"unexpected ws param: {uri}"
 
-    render = context.render
-
     bhv = behaviour_model.behaviour
     assert isinstance(
         bhv, Behaviour
@@ -530,7 +527,7 @@ def behaviour_isaac(context: Context, **kwargs):
     while context.simulation_app.is_running():
         if bhv.is_finished(context=context):
             break
-        context.world.step(render=render)
+        context.world.step(render=context.render)
         # observations
         obs = context.world.get_observations()
         # behaviour step

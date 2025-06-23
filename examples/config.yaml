@@ -1,4 +1,14 @@
+# Note: while 'use_livestream' is true, both headless and render should be True  
 use_livestream: False
 headless: True
 render: False
-# Note: while use_livestream is true, both headless and render should be True
+width: 1280
+height: 720
+window_width: 1920
+window_height: 1080
+hide_ui: False
+renderer: "RayTracedLighting"
+display_options: 3286
+draw_mouse: True
+protocol: ws # websocket protocol
+enable_nginx: False

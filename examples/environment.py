@@ -46,26 +46,39 @@ def before_all(context: Context):
             sys.exit(1)
 
     context.model_graph = g
+    
+    getattr(context, "use_livestream", False)
+    getattr(context, "headless", True)
+    getattr(context, "render", False)
     if context.use_livestream:
+        getattr(context, "width", 1280)
+        getattr(context, "height", 720)
+        getattr(context, "window_width", 1920)
+        getattr(context, "window_height", 1080)
+        getattr(context, "hide_ui", False)
+        getattr(context, "renderer", "RayTracedLighting")
+        getattr(context, "display_options", 3286)
+        getattr(context, "draw_mouse", True)
+        getattr(context, "protocol", "ws")
+        getattr(context, "enable_nginx", False)
         assert context.render is True, "Livestream mode requires rendering. Set 'render' to True."
         assert context.headless is True, "Livestream mode requires headless mode. Set 'headless' to True."
+        
     before_all_isaac(context=context, headless=context.headless, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
 
 def read_config_file(context, filename="config.yaml"):
     config_path = os.path.join(os.path.dirname(__file__), filename)
-
-    if not os.path.exists(config_path):
-        print(f"Config file '{config_path}' does not exist.")
-        return
+    assert os.path.exists(config_path), f"Config file '{config_path}' does not exist."
 
     with open(config_path, "r") as file:
         try:
             config = yaml.safe_load(file)
-            if config and isinstance(config, dict):
-                for key, value in config.items():
-                    setattr(context, key, value)
         except yaml.YAMLError as e:
-            print(f"Error reading config file '{config_path}': {e}")
+            raise ValueError(f"Error parsing config file '{config_path}': {e}")
+        assert isinstance(config, dict), "Config file must contain a dictionary."
+        assert config, "Config file is empty."
+        for key, value in config.items():
+            setattr(context, key, value)
 
 def before_feature(context: Context, feature: Feature):
     context.log_data = {}
