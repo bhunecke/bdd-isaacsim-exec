@@ -47,11 +47,8 @@ def before_all(context: Context):
 
     context.model_graph = g
     if context.use_livestream:
-        # override headless mode if livestream is enabled
-        context.headless = True
-        context.render = False
-    else:
-        context.render = not context.headless
+        assert context.render is True, "Livestream mode requires rendering. Set 'render' to True."
+        assert context.headless is True, "Livestream mode requires headless mode. Set 'headless' to True."
     before_all_isaac(context=context, headless=context.headless, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
 
 def read_config_file(context, filename="config.yaml"):
@@ -66,9 +63,7 @@ def read_config_file(context, filename="config.yaml"):
             config = yaml.safe_load(file)
             if config and isinstance(config, dict):
                 for key, value in config.items():
-                    if not isinstance(key, (int, float)):
-                        print("adding config key:", key)
-                        setattr(context, key, value)
+                    setattr(context, key, value)
         except yaml.YAMLError as e:
             print(f"Error reading config file '{config_path}': {e}")
 

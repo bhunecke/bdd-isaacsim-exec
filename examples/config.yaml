@@ -1,2 +1,4 @@
-use_livestream: False
-headless: True # headless parameter is overrided to True while livestreaming
+use_livestream: True
+headless: True
+render: True
+# Note: while use_livestream is true, both headless and render should be True
