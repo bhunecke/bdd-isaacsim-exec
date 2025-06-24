@@ -99,8 +99,7 @@ def isaacsim_livestream_fixture(context: Context, **kwargs: Any):
     print("*** CLOSING ISAAC SIM ****")
     context.simulation_app.close()
 
-def before_all_isaac(context: Context, headless: bool, time_step_sec: float):
-    context.headless = headless
+def before_all_isaac(context: Context, time_step_sec: float):
     context.time_step_sec = time_step_sec
     if context.use_livestream:
         use_fixture(isaacsim_livestream_fixture, context, unit_length=1.0)
