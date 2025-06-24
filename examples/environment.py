@@ -36,7 +36,7 @@ DEFAULT_ISAAC_PHYSICS_DT_SEC = 1.0 / 60.0
 
 def before_all(context: Context):
     install_resolver()
-    read_config_file(context)
+    read_config_file(context, "config.yaml")
     g = ConjunctiveGraph()
     for url, fmt in MODELS.items():
         try:
@@ -47,26 +47,29 @@ def before_all(context: Context):
 
     context.model_graph = g
     
-    getattr(context, "use_livestream", False)
-    getattr(context, "headless", True)
-    getattr(context, "render", False)
+    setattr(context, "use_livestream", getattr(context, "use_livestream", False))
+    setattr(context, "headless", getattr(context, "headless", True))
+    setattr(context, "render", getattr(context, "render", False))
+
     if context.use_livestream:
-        getattr(context, "width", 1280)
-        getattr(context, "height", 720)
-        getattr(context, "window_width", 1920)
-        getattr(context, "window_height", 1080)
-        getattr(context, "hide_ui", False)
-        getattr(context, "renderer", "RayTracedLighting")
-        getattr(context, "display_options", 3286)
-        getattr(context, "draw_mouse", True)
-        getattr(context, "protocol", "ws")
-        getattr(context, "enable_nginx", False)
+        setattr(context, "width", getattr(context, "width", 1280))
+        setattr(context, "height", getattr(context, "height", 720))
+        setattr(context, "window_width", getattr(context, "window_width", 1920))
+        setattr(context, "window_height", getattr(context, "window_height", 1080))
+        setattr(context, "hide_ui", getattr(context, "hide_ui", False))
+        setattr(context, "renderer", getattr(context, "renderer", "RayTracedLighting"))
+        setattr(context, "display_options", getattr(context, "display_options", 3286))
+        setattr(context, "draw_mouse", getattr(context, "draw_mouse", True))
+        setattr(context, "protocol", getattr(context, "protocol", "ws"))
+        setattr(context, "enable_nginx", getattr(context, "enable_nginx", False))
+
         assert context.render is True, "Livestream mode requires rendering. Set 'render' to True."
         assert context.headless is True, "Livestream mode requires headless mode. Set 'headless' to True."
         
-    before_all_isaac(context=context, headless=context.headless, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
+    before_all_isaac(context=context, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
 
-def read_config_file(context, filename="config.yaml"):
+
+def read_config_file(context: Context, filename: str):
     config_path = os.path.join(os.path.dirname(__file__), filename)
     assert os.path.exists(config_path), f"Config file '{config_path}' does not exist."
 
@@ -75,10 +78,9 @@ def read_config_file(context, filename="config.yaml"):
             config = yaml.safe_load(file)
         except yaml.YAMLError as e:
             raise ValueError(f"Error parsing config file '{config_path}': {e}")
-        assert isinstance(config, dict), "Config file must contain a dictionary."
-        assert config, "Config file is empty."
         for key, value in config.items():
             setattr(context, key, value)
+
 
 def before_feature(context: Context, feature: Feature):
     context.log_data = {}
