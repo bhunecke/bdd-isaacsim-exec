@@ -41,7 +41,7 @@ def before_all(context: Context):
 
     context.model_graph = g
     context.exec_timestamp = time.strftime('%Y%m%d-%H%M%S')
-    before_all_isaac(context=context, render_type="hide_ui", enable_capture=True, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
+    before_all_isaac(context=context, render_type="normal", enable_capture=False, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
 
 
 def before_feature(context: Context, feature: Feature):
@@ -75,13 +75,15 @@ def after_scenario(context: Context, scenario: Scenario):
     context.log_data[scenario.name]["end_time_unix"] = end_time
     context.log_data[scenario.name]["exec_time"] = end_time - context.log_data[scenario.name]["start_time_unix"]
     context.log_data[scenario.name]["behave_exec_time"] = scenario.duration
-    frame_data_file = os.path.join(
-        context.scenario_capture_folder,
-        f"frame_data-{get_valid_var_name(scenario.name)}-{context.exec_timestamp}.json",
-    )
-    os.makedirs(os.path.dirname(frame_data_file), exist_ok=True)
-    with open(frame_data_file, "w") as file:
-        file.write(json.dumps(context.frame_logs, indent=2))
+
+    if context.enable_capture:
+        frame_data_file = os.path.join(
+            context.scenario_capture_folder,
+            f"frame_data-{get_valid_var_name(scenario.name)}-{context.exec_timestamp}.json",
+        )
+        os.makedirs(os.path.dirname(frame_data_file), exist_ok=True)
+        with open(frame_data_file, "w") as file:
+            file.write(json.dumps(context.frame_logs, indent=2))
     after_scenario_isaac(context)
 
 
