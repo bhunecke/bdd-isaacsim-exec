@@ -31,12 +31,32 @@ MODELS = {
     f"{URL_SECORO_M}/acceptance-criteria/bdd/execution/pickplace-secorolab-isaac.bhv.exec.json": "json-ld",
 }
 
+BASE_DEFAULT = {
+    "use_livestream": False,
+    "headless": True,
+    "render": False,
+}
+
+LIVESTREAM_DEFAULT = {
+    "width": 1280,
+    "height": 720,
+    "window_width": 1920,
+    "window_height": 1080,
+    "hide_ui": False,
+    "renderer": "RayTracedLighting",
+    "display_options": 3286,
+    "draw_mouse": True,
+    "protocol": "ws",
+    "enable_nginx": False,
+}
+
 DEFAULT_ISAAC_PHYSICS_DT_SEC = 1.0 / 60.0
 
 
 def before_all(context: Context):
     install_resolver()
-    read_config_file(context, "config.yaml")
+    config_file = context.config.userdata.get("config_file", "config.yaml")
+    read_config_file(context, config_file)
     g = ConjunctiveGraph()
     for url, fmt in MODELS.items():
         try:
@@ -46,27 +66,21 @@ def before_all(context: Context):
             sys.exit(1)
 
     context.model_graph = g
-    
-    setattr(context, "use_livestream", getattr(context, "use_livestream", False))
-    setattr(context, "headless", getattr(context, "headless", True))
-    setattr(context, "render", getattr(context, "render", False))
+
+    apply_defaults(context, BASE_DEFAULT)
 
     if context.use_livestream:
-        setattr(context, "width", getattr(context, "width", 1280))
-        setattr(context, "height", getattr(context, "height", 720))
-        setattr(context, "window_width", getattr(context, "window_width", 1920))
-        setattr(context, "window_height", getattr(context, "window_height", 1080))
-        setattr(context, "hide_ui", getattr(context, "hide_ui", False))
-        setattr(context, "renderer", getattr(context, "renderer", "RayTracedLighting"))
-        setattr(context, "display_options", getattr(context, "display_options", 3286))
-        setattr(context, "draw_mouse", getattr(context, "draw_mouse", True))
-        setattr(context, "protocol", getattr(context, "protocol", "ws"))
-        setattr(context, "enable_nginx", getattr(context, "enable_nginx", False))
-
+        apply_defaults(context, LIVESTREAM_DEFAULT)
         assert context.render is True, "Livestream mode requires rendering. Set 'render' to True."
         assert context.headless is True, "Livestream mode requires headless mode. Set 'headless' to True."
-        
+
     before_all_isaac(context=context, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
+
+
+def apply_defaults(context, defaults: dict):
+    for key, default_value in defaults.items():
+        if not hasattr(context, key):
+            setattr(context, key, default_value)
 
 
 def read_config_file(context: Context, filename: str):
