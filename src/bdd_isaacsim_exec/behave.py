@@ -1,5 +1,5 @@
 # SPDX-License-Identifier:  GPL-3.0-or-later
-from typing import Any, Literal
+from typing import Any
 import time
 import numpy as np
 import os
@@ -45,19 +45,12 @@ def isaacsim_fixture(context: Context, **kwargs: Any):
     from isaacsim import SimulationApp
 
     unit_length = kwargs.get("unit_length", 1.0)
-    render_type = context.render_type
-    if render_type == "headless":
-        context.headless = True
-        config = { "headless": True }
-    elif render_type == "hide_ui":
-        context.headless = False
-        config = { "hide_ui": True }
-    elif render_type == "normal":
-        context.headless = False
-        config = { "headless": False }
+    config = {"headless": context.headless, "hide_ui": context.hide_ui}
     time_step_sec = context.time_step_sec
 
-    print(f"*** STARTING ISAAC SIM, render_type={render_type} unit_length={unit_length} ****")
+    print(
+        f"*** STARTING ISAAC SIM, headless={context.headless} hide_ui={context.hide_ui} unit_length={unit_length} ****"
+    )
     context.simulation_app = SimulationApp(config)
 
     from omni.isaac.core import World
@@ -70,10 +63,18 @@ def isaacsim_fixture(context: Context, **kwargs: Any):
     context.simulation_app.close()
 
 
-def before_all_isaac(context: Context, render_type: Literal["headless", "hide_ui", "normal"], enable_capture: bool, time_step_sec: float):
-    context.render_type = render_type
-    context.enable_capture = enable_capture
-    context.time_step_sec = time_step_sec
+def before_all_isaac(context: Context, sim_configs: dict):
+    context.hide_ui = sim_configs["hide_ui"]
+    context.headless = sim_configs["headless"]
+    context.time_step_sec = sim_configs["time_step_sec"]
+
+    context.enable_capture = sim_configs["enable_capture"]
+    context.capture_configs = None
+    if context.enable_capture:
+        assert (
+            "capture_configs" in sim_configs
+        ), f"capture enabled with no 'capture_configs': {sim_configs}"
+        context.capture_configs = sim_configs["capture_configs"]
     use_fixture(isaacsim_fixture, context, unit_length=1.0)
 
     g = getattr(context, "model_graph", None)
@@ -120,63 +121,92 @@ def before_scenario_isaac(context: Context, scenario: Scenario):
     print(f"**** Loaded Isaac Sim Task {task.name}")
     context.task = task
 
-    from bdd_isaacsim_exec.utils import setup_camera_in_scene
-    import omni.isaac.core.utils.numpy.rotations as rot_utils
+    if context.enable_capture:
+        from bdd_isaacsim_exec.utils import setup_camera_in_scene
+        import omni.isaac.core.utils.numpy.rotations as rot_utils
 
-    context.cameras = list()
-    context.cameras.append(setup_camera_in_scene(
-        name="camera_top",
-        resolution=(1077, 480),
-        position=np.array([0.3, 0.0, 7.5]),
-        orientation=rot_utils.euler_angles_to_quats(np.array([0, 90, 180]), degrees=True),
-    ))
-    context.cameras.append(setup_camera_in_scene(
-        name="camera_front",
-        resolution=(1077, 480),
-        position=np.array([7.0, 0.0, 0.5]),
-        orientation=rot_utils.euler_angles_to_quats(np.array([0, 0, 180]), degrees=True),
-    ))
-    context.cameras.append(setup_camera_in_scene(
-        name="camera_isometric",
-        resolution=(1077, 480),
-        position=np.array([5.5, 1.5, 2.0]),
-        orientation=np.array([-0.14311696, -0.15081383, -0.02560492,  0.97781241]),
-    ))
-    context.frame_index = 0
-    context.scenario_capture_folder = os.path.join(
-        context.root_capture_folder,
-        get_valid_var_name(scenario.name),
-    )
-    context.scenario_frames = {camera.name: [] for camera in context.cameras}
+        assert (
+            "fps" in context.capture_configs
+        ), f"no 'fps' in capture configs: {context.capture_configs}"
+        assert (
+            "cameras" in context.capture_configs
+        ), f"no 'cameras' in capture configs: {context.capture_configs}"
+        context.cameras = list()
+        for cam_data in context.capture_configs["cameras"]:
+            assert (
+                "name" in cam_data
+                and "resolution" in cam_data
+                and "position" in cam_data
+                and "orientation" in cam_data
+                and "orientation_type" in cam_data
+            ), f"invalid info in camera configs: {cam_data}"
+            cam_name = cam_data["name"]
+            orn_type = cam_data["orientation_type"]
+            orn_vals = cam_data["orientation"]
+            if orn_type == "euler":
+                assert (
+                    len(orn_vals) == 3
+                ), f"Euler type orientation should be a list with 3 values, got: {orn_vals}"
+                orientation = rot_utils.euler_angles_to_quats(np.array(orn_vals), degrees=True)
+            elif orn_type == "quaternion":
+                assert (
+                    len(orn_vals) == 4
+                ), f"Quaternion type orientation should be a list with 4 values, got: {orn_vals}"
+                orientation = np.array(orn_vals)
+            else:
+                raise ValueError(f"Unhandled orientation type '{orn_type}' for cam '{cam_name}'")
+            context.cameras.append(
+                setup_camera_in_scene(
+                    name=cam_name,
+                    resolution=tuple(cam_data["resolution"]),
+                    position=np.array(cam_data["position"]),
+                    orientation=orientation,
+                    fps=context.capture_configs["fps"],
+                )
+            )
+        assert (
+            len(context.cameras) > 0
+        ), f"no cameras set up in capture configs: {context.capture_configs}"
+        scr_cap_dir = os.path.join(
+            context.capture_folder,
+            get_valid_var_name(scenario.name),
+        )
+        os.makedirs(scr_cap_dir, exist_ok=True)
+        context.scenario_capture_folder = scr_cap_dir
+        context.frame_index = 0
+        context.scenario_frames = {camera.name: [] for camera in context.cameras}
 
 
 def after_scenario_isaac(context: Context):
-    from omni.isaac.core.utils.prims import get_prim_at_path
     from bdd_isaacsim_exec.utils import save_frames, create_video_from_frames
 
     if context.enable_capture:
         for camera in context.cameras:
             save_frames(
                 frames=context.scenario_frames[camera.name],
-                capture_root_path=os.path.join(context.scenario_capture_folder, camera.name)
+                output_dir=os.path.join(context.scenario_capture_folder, "frames", camera.name),
             )
             context.scenario_frames[camera.name] = []
             print(f"*** Frames saved for camera '{camera.name}'")
             video_path = create_video_from_frames(
-                capture_root_path=os.path.join(context.scenario_capture_folder, camera.name),
+                capture_root_path=os.path.join(context.scenario_capture_folder),
+                camera_name=camera.name,
+                frame_rate=20,
                 scenario_name=context.scenario.name,
             )
             print(f"*** Video saved to {video_path}")
 
             video_relative_path = os.path.join(*os.path.normpath(video_path).split(os.sep)[-3:])
-            context.log_data[context.scenario.name]["cameras"].append({
-                "name": camera.name,
-                "resolution": np.array(camera.get_resolution()).tolist(),
-                "position": np.array(camera.get_world_pose()[0]).tolist(),
-                "orientation": np.array(camera.get_world_pose()[1]).tolist(),
-                "video_path": video_relative_path,
-                "frame_count": context.frame_index,
-            })
+            context.log_data[context.scenario.name]["cameras"].append(
+                {
+                    "name": camera.name,
+                    "resolution": np.array(camera.get_resolution()).tolist(),
+                    "position": np.array(camera.get_world_pose()[0]).tolist(),
+                    "orientation": np.array(camera.get_world_pose()[1]).tolist(),
+                    "video_path": video_relative_path,
+                    "frame_count": context.frame_index,
+                }
+            )
 
     context.task.cleanup_scene_models()
     context.world.clear()
@@ -572,18 +602,20 @@ def behaviour_isaac(context: Context, **kwargs):
                     if ws_id in ws_previous_positions:
                         ws_displacement = np.linalg.norm(ws_position - ws_previous_positions[ws_id])
                         ws_displacement_sums_frame[ws_id] += ws_displacement
-                context.frame_logs.append({
-                    "camera": camera.name,
-                    "frame_id": context.frame_index,
-                    "filename": f"frame_{context.frame_index:05d}.jpg",
-                    "timestamp_unix": timestamp_unix,
-                    "timestamp_rel": timestamp_rel,
-                    "ee_speed": float(np.linalg.norm(obs[agn_ids[0]]["ee_linear_velocities"])),
-                    "ws_displacement": {
-                        ws_id.n3(graph.namespace_manager): ws_displacement_sums_frame[ws_id]
-                        for ws_id in place_ws_ids
-                    },
-                })
+                context.frame_logs.append(
+                    {
+                        "camera": camera.name,
+                        "frame_id": context.frame_index,
+                        "filename": f"frame_{context.frame_index:05d}.jpg",
+                        "timestamp_unix": timestamp_unix,
+                        "timestamp_rel": timestamp_rel,
+                        "ee_speed": float(np.linalg.norm(obs[agn_ids[0]]["ee_linear_velocities"])),
+                        "ws_displacement": {
+                            ws_id.n3(graph.namespace_manager): ws_displacement_sums_frame[ws_id]
+                            for ws_id in place_ws_ids
+                        },
+                    }
+                )
                 ws_displacement_sums_frame = {ws_id: 0 for ws_id in place_ws_ids}
             context.frame_index += 1
         # observations
@@ -620,13 +652,20 @@ def behaviour_isaac(context: Context, **kwargs):
         speed_min = np.min(agn_speeds)
         speed_max = np.max(agn_speeds)
         context.step_debug_info["ee_speed"] = {}
-        context.step_debug_info["ee_speed"]["mean"] = "NaN" if np.isnan(speed_mean) else float(speed_mean)
-        context.step_debug_info["ee_speed"]["std"] = "NaN" if np.isnan(speed_std) else float(speed_std)
-        context.step_debug_info["ee_speed"]["min"] = "NaN" if np.isnan(speed_min) else float(speed_min)
-        context.step_debug_info["ee_speed"]["max"] = "NaN" if np.isnan(speed_max) else float(speed_max)
+        context.step_debug_info["ee_speed"]["mean"] = (
+            "NaN" if np.isnan(speed_mean) else float(speed_mean)
+        )
+        context.step_debug_info["ee_speed"]["std"] = (
+            "NaN" if np.isnan(speed_std) else float(speed_std)
+        )
+        context.step_debug_info["ee_speed"]["min"] = (
+            "NaN" if np.isnan(speed_min) else float(speed_min)
+        )
+        context.step_debug_info["ee_speed"]["max"] = (
+            "NaN" if np.isnan(speed_max) else float(speed_max)
+        )
         context.step_debug_info["ws_displacement"] = {
-            ws_id.n3(graph.namespace_manager): ws_displacement_sums[ws_id]
-            for ws_id in place_ws_ids
+            ws_id.n3(graph.namespace_manager): ws_displacement_sums[ws_id] for ws_id in place_ws_ids
         }
         print(
             "\n\n*** Agent speed statistics: "

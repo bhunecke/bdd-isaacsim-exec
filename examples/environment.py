@@ -2,6 +2,7 @@ import sys
 import os
 import time
 import json
+import yaml
 from json import JSONDecodeError
 from behave.model import Feature, Scenario, Step
 from rdflib import ConjunctiveGraph
@@ -12,27 +13,39 @@ from rdf_utils.naming import get_valid_var_name
 from bdd_isaacsim_exec.behave import before_all_isaac, before_scenario_isaac, after_scenario_isaac
 
 
-MODELS = {
-    f"{URL_SECORO_M}/acceptance-criteria/bdd/agents/isaac-sim.agn.json": "json-ld",
-    f"{URL_SECORO_M}/acceptance-criteria/bdd/scenes/isaac-agents.scene.json": "json-ld",
-    f"{URL_SECORO_M}/acceptance-criteria/bdd/environments/secorolab.env.json": "json-ld",
-    f"{URL_SECORO_M}/acceptance-criteria/bdd/simulation/secorolab-isaac.sim.json": "json-ld",
-    f"{URL_SECORO_M}/acceptance-criteria/bdd/scenes/secorolab-env.scene.json": "json-ld",
-    # f"{URL_SECORO_M}/acceptance-criteria/bdd/templates/pickplace.tmpl.json": "json-ld",
-    # f"{URL_SECORO_M}/acceptance-criteria/bdd/pickplace-secorolab-isaac.var.json": "json-ld",
-    f"{URL_SECORO_M}/acceptance-criteria/bdd/templates/sorting.tmpl.json": "json-ld",
-    f"{URL_SECORO_M}/acceptance-criteria/bdd/sorting-secorolab-isaac.var.json": "json-ld",
-    f"{URL_SECORO_M}/acceptance-criteria/bdd/execution/pickplace-secorolab-isaac.exec.json": "json-ld",
-    f"{URL_SECORO_M}/acceptance-criteria/bdd/execution/pickplace-secorolab-isaac.bhv.exec.json": "json-ld",
-}
-
 DEFAULT_ISAAC_PHYSICS_DT_SEC = 1.0 / 60.0
 
 
 def before_all(context: Context):
+    from pprint import pprint
+
+    # config file
+    config_file = context.config.userdata.get("config_file", None)
+    assert config_file is not None, "no config file specified"
+    assert os.path.isfile(config_file), f"not a file: {config_file}"
+    with open(config_file, "r") as cf:
+        configs = yaml.safe_load(cf)
+
+    if "hide_ui" not in configs:
+        configs["hide_ui"] = False
+    if "time_step_sec" not in configs:
+        configs["time_step_sec"] = DEFAULT_ISAAC_PHYSICS_DT_SEC
+    print("Configurations:")
+    pprint(configs)
+
+    # model file
+    model_file = context.config.userdata.get("model_file", None)
+    assert model_file is not None, "no model file specified"
+    assert os.path.isfile(model_file), f"not a file: {model_file}"
+    with open(model_file, "r") as mf:
+        models = yaml.safe_load(mf)
+
     install_resolver()
     g = ConjunctiveGraph()
-    for url, fmt in MODELS.items():
+    for model_data in models:
+        assert "url" in model_data and "format" in model_data, f"invalid model info: {model_data}"
+        url = model_data["url"]
+        fmt = model_data["format"]
         try:
             g.parse(url, format=fmt)
         except JSONDecodeError as e:
@@ -40,23 +53,27 @@ def before_all(context: Context):
             sys.exit(1)
 
     context.model_graph = g
-    context.exec_timestamp = time.strftime('%Y%m%d-%H%M%S')
-    before_all_isaac(context=context, render_type="normal", enable_capture=False, time_step_sec=DEFAULT_ISAAC_PHYSICS_DT_SEC)
+    context.exec_timestamp = time.strftime("%Y%m%d-%H%M%S")
+    before_all_isaac(context=context, sim_configs=configs)
 
 
 def before_feature(context: Context, feature: Feature):
     context.log_data = {}
-    context.root_capture_folder = os.path.join(
-        os.path.dirname(__file__),
-        "captures",
-        f"capture-{get_valid_var_name(feature.name)}-{context.exec_timestamp}"
-    )
-    os.makedirs(name=context.root_capture_folder, exist_ok=True)
+    if context.enable_capture:
+        assert (
+            context.capture_configs is not None and "root_dir" in context.capture_configs
+        ), f"invalid capture configs: {context.capture_configs}"
+        context.capture_folder = os.path.join(
+            context.capture_configs["root_dir"],
+            f"capture-{get_valid_var_name(feature.name)}-{context.exec_timestamp}",
+        )
+        print("Creating directory: ", context.capture_folder)
+        os.makedirs(name=context.capture_folder, exist_ok=True)
 
 
 def after_feature(context: Context, feature: Feature):
     log_data_file = os.path.join(
-        context.root_capture_folder,
+        context.capture_folder,
         f"log_data-{get_valid_var_name(feature.name)}-{context.exec_timestamp}.json",
     )
     with open(log_data_file, "w") as file:
@@ -73,7 +90,9 @@ def before_scenario(context: Context, scenario: Scenario):
 def after_scenario(context: Context, scenario: Scenario):
     end_time = time.time()
     context.log_data[scenario.name]["end_time_unix"] = end_time
-    context.log_data[scenario.name]["exec_time"] = end_time - context.log_data[scenario.name]["start_time_unix"]
+    context.log_data[scenario.name]["exec_time"] = (
+        end_time - context.log_data[scenario.name]["start_time_unix"]
+    )
     context.log_data[scenario.name]["behave_exec_time"] = scenario.duration
 
     if context.enable_capture:

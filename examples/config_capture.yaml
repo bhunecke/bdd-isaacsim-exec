@@ -1,0 +1,22 @@
+headless: True
+hide_ui: True
+enable_capture: True
+capture_configs:
+  root_dir: /media/ext4-data/share/bdd-captures/sorting-no_ee_speed-wo_cones/panda-normal-0.9
+  fps: 20
+  cameras:
+    - name: camera_top
+      resolution: [1077, 480]
+      position: [0.3, 0.0, 7.5]
+      orientation: [0, 90, 180]
+      orientation_type: euler
+    - name: camera_front
+      resolution: [1077, 480]
+      position: [7.0, 0.0, 0.5]
+      orientation: [0, 0, 180]
+      orientation_type: euler
+    - name: camera_isometric
+      resolution: [1077, 480]
+      position: [5.5, 1.5, 2.0]
+      orientation: [-0.14311696, -0.15081383, -0.02560492, 0.97781241]
+      orientation_type: quaternion

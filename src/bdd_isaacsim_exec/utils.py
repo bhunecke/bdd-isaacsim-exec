@@ -1,10 +1,8 @@
 # SPDX-License-Identifier:  GPL-3.0-or-later
 from os.path import exists as os_exists
 import os
-import re
 import cv2
 import imageio
-import matplotlib.pyplot as plt
 from typing import Union
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
@@ -33,8 +31,10 @@ from omni.isaac.sensor import Camera
 
 _CACHED_ASSET_ROOT = None
 _CACHED_ID_STRS = set()
-OBJ_POSITION_LOWER_BOUNDS = [0.25, -0.4, 0.15]
-OBJ_POSITION_UPPER_BOUNDS = [0.6, 0.4, 0.2]
+OBJ_POSITION_LOWER_BOUNDS_D = [0.35, -0.3, 0.15]
+OBJ_POSITION_UPPER_BOUNDS_D = [0.6, 0.3, 0.2]
+OBJ_POSITION_LOWER_BOUNDS_N = [0.25, -0.4, 0.15]
+OBJ_POSITION_UPPER_BOUNDS_N = [0.6, 0.4, 0.2]
 
 
 def _get_unique_id_str(id_str: str, max_iteration: int = 100) -> str:
@@ -100,7 +100,7 @@ def create_rigid_prim_in_scene(
         prim_configs["color"] = check_or_convert_ndarray(prim_configs["color"]) / get_stage_units()
 
     if "position" not in prim_configs:
-        obj_position = np.random.uniform(OBJ_POSITION_LOWER_BOUNDS, OBJ_POSITION_UPPER_BOUNDS)
+        obj_position = np.random.uniform(OBJ_POSITION_LOWER_BOUNDS_N, OBJ_POSITION_UPPER_BOUNDS_N)
         prim_configs["position"] = obj_position / get_stage_units()
 
     unique_id_str = _get_unique_id_str(id_str=id_str)
@@ -161,7 +161,9 @@ def create_rigid_prim_in_scene(
     raise RuntimeError(f"unhandled types for object'{model.id}': {model.model_types}")
 
 
-def setup_camera_in_scene(name: str, position: np.ndarray, orientation: np.ndarray, resolution: tuple) -> Camera:
+def setup_camera_in_scene(
+    name: str, position: np.ndarray, orientation: np.ndarray, resolution: tuple, fps: float
+) -> Camera:
     """Setup camera in scene.
 
     Args:
@@ -178,12 +180,13 @@ def setup_camera_in_scene(name: str, position: np.ndarray, orientation: np.ndarr
         name=name,
         position=position,
         orientation=orientation,
-        frequency=20,
+        frequency=fps,
         resolution=resolution,
     )
     camera.initialize()
     camera.add_motion_vectors_to_frame()
     return camera
+
 
 def capture_camera_image(camera: Camera) -> np.ndarray:
     """Capture camera image.
@@ -197,24 +200,25 @@ def capture_camera_image(camera: Camera) -> np.ndarray:
     rgba = camera.get_rgba()
     if rgba is None:
         raise RuntimeError(f"Camera {camera.name} did not return an image")
-    
+
     # Convert RGBA to RGB
     rgb_image = rgba[:, :, :3]
     return rgb_image
+
 
 def save_single_frame(i: int, frame: np.ndarray, output_dir: str):
     file_name = f"frame_{i:05d}.jpg"
     frame_path = os.path.join(output_dir, file_name)
     imageio.imwrite(frame_path, frame)
 
-def save_frames(frames: list, capture_root_path: str, threads: int = 8):
+
+def save_frames(frames: list, output_dir: str, threads: int = 8):
     """Save frames to disk.
 
     Args:
         frames (list): List of frames to save
         capture_root_path (str): Root path for saving captures
     """
-    output_dir = os.path.join(capture_root_path, "video_frames")
     if not os_exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
@@ -222,32 +226,18 @@ def save_frames(frames: list, capture_root_path: str, threads: int = 8):
         for i, frame in enumerate(frames):
             executor.submit(save_single_frame, i, frame, output_dir)
 
-def save_camera_image(camera: Camera, capture_root_path: str, frame_index: int) -> str:
-    """Save camera image to disk.
 
-    Args:
-        camera (Camera): Camera object
-        capture_root_path (str): Root path for saving captures
-        frame_index (int): Frame index for naming the image file
-
-    Returns:
-        str: The name of the saved image file
-    """
-    output_dir = os.path.join(capture_root_path, "video_frames")
-    file_name = f"frame_{frame_index:05d}.jpg"
-    if not os_exists(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
-
-    frame_path = os.path.join(output_dir, file_name)
-    frame = camera.get_rgba()[:, :, :3]
-    imageio.imwrite(frame_path, frame)
-    return file_name
-
-def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_rate: int = 20, cleanup_frames: bool = False):
+def create_video_from_frames(
+    capture_root_path: str,
+    scenario_name: str,
+    frame_rate: int,
+    camera_name: str,
+    cleanup_frames: bool = False,
+):
     """
     Creates a video from a sequence of image frames stored in a directory.
     Args:
-        output_dir (str): The directory containing the image frames. 
+        output_dir (str): The directory containing the image frames.
                           Only files with a ".jpg" extension will be used.
         video_path (str): The path where the output video file will be saved.
         frame_rate (int, optional): The frame rate of the output video. Defaults to 20.
@@ -257,8 +247,10 @@ def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_r
         - The image frames are expected to have the same dimensions.
         - The video will be encoded in MP4 format using the 'mp4v' codec.
     """
-    frames_dir = os.path.join(capture_root_path, "video_frames")
-    video_path = os.path.join(capture_root_path, f"{get_valid_var_name(scenario_name)}.mp4")
+    frames_dir = os.path.join(capture_root_path, "frames", camera_name)
+    vid_dir = os.path.join(capture_root_path, "vids")
+    os.makedirs(vid_dir, exist_ok=True)
+    video_path = os.path.join(vid_dir, f"{get_valid_var_name(scenario_name)}-{camera_name}.mp4")
     frame_files = [f for f in os.listdir(frames_dir) if f.endswith(".jpg")]
     frame_files.sort()
 
@@ -270,7 +262,7 @@ def create_video_from_frames(capture_root_path: str, scenario_name: str, frame_r
     height, width, _ = first_frame.shape
 
     # Define the video writer
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     video_writer = cv2.VideoWriter(video_path, fourcc, frame_rate, (width, height))
 
     # Write each frame to the video
