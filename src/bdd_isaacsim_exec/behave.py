@@ -3,6 +3,7 @@ from typing import Any
 import time
 import numpy as np
 import os
+from enum import Enum
 from behave import use_fixture
 from behave.model import Scenario
 from behave.runner import Context
@@ -41,17 +42,31 @@ PANDA_SPEED_THRESHOLD = PANDA_MAX_EE_SPEED_MEAN + 2 * PANDA_MAX_EE_SPEED_STD
 SPEED_THRESHOLD = 1.1
 
 
+class SimMode(Enum):
+    HEADLESS = "headless"
+    HIDE_UI = "hide_ui"
+    NORMAL = "normal"
+
+
 def isaacsim_fixture(context: Context, **kwargs: Any):
     from isaacsim import SimulationApp
 
     unit_length = kwargs.get("unit_length", 1.0)
-    config = {"headless": context.headless, "hide_ui": context.hide_ui}
+    if context.sim_mode == SimMode.HEADLESS:
+        context.headless = True
+        render_cfg = {SimMode.HEADLESS.value: True}
+    elif context.sim_mode == SimMode.HIDE_UI:
+        context.headless = False
+        render_cfg = {SimMode.HIDE_UI.value: True}
+    elif context.sim_mode == SimMode.NORMAL:
+        context.headless = False
+        render_cfg = {SimMode.HEADLESS.value: False}
+    else:
+        raise ValueError(f"Unhandled SimMode: {context.sim_mode}")
     time_step_sec = context.time_step_sec
 
-    print(
-        f"*** STARTING ISAAC SIM, headless={context.headless} hide_ui={context.hide_ui} unit_length={unit_length} ****"
-    )
-    context.simulation_app = SimulationApp(config)
+    print(f"*** STARTING ISAAC SIM, mode={context.sim_mode.value} unit_length={unit_length} ****")
+    context.simulation_app = SimulationApp(render_cfg)
 
     from omni.isaac.core import World
 
@@ -63,10 +78,10 @@ def isaacsim_fixture(context: Context, **kwargs: Any):
     context.simulation_app.close()
 
 
-def before_all_isaac(context: Context, sim_configs: dict):
-    context.hide_ui = sim_configs["hide_ui"]
-    context.headless = sim_configs["headless"]
+def before_all_isaac(context: Context, sim_mode: SimMode, sim_configs: dict):
     context.time_step_sec = sim_configs["time_step_sec"]
+    context.sim_mode = sim_mode
+    use_fixture(isaacsim_fixture, context, unit_length=1.0)
 
     context.enable_capture = sim_configs["enable_capture"]
     context.capture_configs = None
@@ -75,7 +90,6 @@ def before_all_isaac(context: Context, sim_configs: dict):
             "capture_configs" in sim_configs
         ), f"capture enabled with no 'capture_configs': {sim_configs}"
         context.capture_configs = sim_configs["capture_configs"]
-    use_fixture(isaacsim_fixture, context, unit_length=1.0)
 
     g = getattr(context, "model_graph", None)
     assert g is not None, "'model_graph' attribute not found in context"

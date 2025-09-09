@@ -10,7 +10,12 @@ from behave.runner import Context
 from rdf_utils.uri import URL_SECORO_M
 from rdf_utils.resolver import install_resolver
 from rdf_utils.naming import get_valid_var_name
-from bdd_isaacsim_exec.behave import before_all_isaac, before_scenario_isaac, after_scenario_isaac
+from bdd_isaacsim_exec.behave import (
+    before_all_isaac,
+    before_scenario_isaac,
+    after_scenario_isaac,
+    SimMode,
+)
 
 
 DEFAULT_ISAAC_PHYSICS_DT_SEC = 1.0 / 60.0
@@ -26,8 +31,13 @@ def before_all(context: Context):
     with open(config_file, "r") as cf:
         configs = yaml.safe_load(cf)
 
-    if "hide_ui" not in configs:
-        configs["hide_ui"] = False
+    assert "mode" in configs, f"no 'mode' specified in configs: {configs}"
+    try:
+        sim_mode = SimMode(configs["mode"])
+    except ValueError:
+        raise ValueError(
+            f"invalid simulation mode '{configs['mode']}', available: {', '.join([m.value for m in SimMode])}"
+        )
     if "time_step_sec" not in configs:
         configs["time_step_sec"] = DEFAULT_ISAAC_PHYSICS_DT_SEC
     print("Configurations:")
@@ -54,7 +64,7 @@ def before_all(context: Context):
 
     context.model_graph = g
     context.exec_timestamp = time.strftime("%Y%m%d-%H%M%S")
-    before_all_isaac(context=context, sim_configs=configs)
+    before_all_isaac(context=context, sim_mode=sim_mode, sim_configs=configs)
 
 
 def before_feature(context: Context, feature: Feature):
