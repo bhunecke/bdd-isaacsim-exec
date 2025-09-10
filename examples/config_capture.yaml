@@ -1,4 +1,6 @@
 mode: hide_ui
+bhv_kwargs:
+  visualize_target_obj: False
 enable_capture: True
 capture_configs:
   root_dir: /media/ext4-data/share/bdd-captures/sorting-no_ee_speed-wo_cones/panda-normal-0.9

@@ -20,6 +20,8 @@ class IsaacsimPickPlaceBehaviour(Behaviour):
     ws_id: Optional[list[URIRef]]
     _fsm: Optional[GenPickPlaceController]
     _art_ctrl: Optional[ArticulationController]
+    _vis_target: Optional[VisualCone]
+    _visualize_target_obj: bool
 
     def __init__(
         self,
@@ -35,6 +37,7 @@ class IsaacsimPickPlaceBehaviour(Behaviour):
         self._gripper_offset = None
 
         # add red visual cone to visualize target obj
+        self._visualize_target_obj = kwargs.get("visualize_target_obj", True)
         self._vis_target = None
 
     def is_finished(self, context: Context, **kwargs: Any) -> bool:
@@ -90,20 +93,21 @@ class IsaacsimPickPlaceBehaviour(Behaviour):
         if self._gripper_offset is None:
             self._gripper_offset = np.zeros(3)
 
-        vis_target_name = find_unique_string_name(
-            initial_name="visual_target",
-            is_unique_fn=lambda x: not context.world.scene.object_exists(x),
-        )
-        self._vis_target = context.world.scene.add(
-            VisualCone(
-                prim_path="/World/Xform/visual_target",
-                name=vis_target_name,
-                color=np.array([1.0, 0.0, 0.0]),
-                orientation=np.array([1, 0, 0, 0]),
-                radius=0.02,
-                height=0.02,
+        if self._visualize_target_obj:
+            vis_target_name = find_unique_string_name(
+                initial_name="visual_target",
+                is_unique_fn=lambda x: not context.world.scene.object_exists(x),
             )
-        )
+            self._vis_target = context.world.scene.add(
+                VisualCone(
+                    prim_path="/World/Xform/visual_target",
+                    name=vis_target_name,
+                    color=np.array([1.0, 0.0, 0.0]),
+                    orientation=np.array([1, 0, 0, 0]),
+                    radius=0.02,
+                    height=0.02,
+                )
+            )
 
         assert self._fsm is not None, "Behaviour.reset: _fsm is None"
         agn_prim.gripper.open()
@@ -116,8 +120,12 @@ class IsaacsimPickPlaceBehaviour(Behaviour):
             and self.ws_id is not None
             and self._fsm is not None
             and self._art_ctrl is not None
-            and self._vis_target is not None
         ), f"Behaviour '{self.id}': params are None, step() expects reset() to be called first"
+        if self._visualize_target_obj:
+            assert (
+                self._vis_target is not None
+            ), f"Behaviour '{self.id}':visualising target obj enabled but visual shape not initialized"
+
         obs = kwargs.get("observations")
         assert obs is not None, f"{self.__class__}.step missing 'observations' arg"
         assert self.obj_id in obs, f"target obj '{self.obj_id}' not in observations"
@@ -132,10 +140,11 @@ class IsaacsimPickPlaceBehaviour(Behaviour):
         ), f"obj '{ws_obj_id}' of target place ws '{self.ws_id}' not in observations"
 
         grasp_position = obs[self.obj_id]["position"]
-        self._vis_target.set_world_pose(
-            position=grasp_position + [0, 0, 0.05],
-            orientation=obs[self.obj_id]["orientation"],
-        )
+        if self._vis_target is not None:
+            self._vis_target.set_world_pose(
+                position=grasp_position + [0, 0, 0.05],
+                orientation=obs[self.obj_id]["orientation"],
+            )
 
         actions = self._fsm.forward(
             picking_position=grasp_position,

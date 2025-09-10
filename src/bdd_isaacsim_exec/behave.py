@@ -83,6 +83,11 @@ def before_all_isaac(context: Context, sim_mode: SimMode, sim_configs: dict):
     context.sim_mode = sim_mode
     use_fixture(isaacsim_fixture, context, unit_length=1.0)
 
+    if "bhv_kwargs" in sim_configs:
+        context.bhv_kwargs = sim_configs["bhv_kwargs"]
+    else:
+        context.bhv_kwargs = {}
+
     context.enable_capture = sim_configs["enable_capture"]
     context.capture_configs = None
     if context.enable_capture:
@@ -528,6 +533,7 @@ def move_safely_isaac(context: Context, **kwargs):
 
 
 def behaviour_isaac(context: Context, **kwargs):
+    from omni.isaac.core import SimulationContext
     from bdd_isaacsim_exec.tasks import MeasurementType
     from bdd_isaacsim_exec.utils import capture_camera_image
 
@@ -552,6 +558,7 @@ def behaviour_isaac(context: Context, **kwargs):
         behaviour_model = exec_model.load_behaviour_impl(
             context=context,
             ns_manager=graph.namespace_manager,
+            **context.bhv_kwargs,
         )
         context.behaviour_model = behaviour_model
 
@@ -581,13 +588,11 @@ def behaviour_isaac(context: Context, **kwargs):
     agn_speeds = []
     #  safety metric 2 -- bins culmulative displacement
     ws_displacement_sums = {}
-    ws_displacement_sums_frame = {}
     ws_obj_map = {}
     ws_previous_positions = {}
     for ws_id in place_ws_ids:
         context.task.add_measurement(elem_id=ws_id, meas_type=MeasurementType.WS_POSE)
         ws_displacement_sums[ws_id] = 0
-        ws_displacement_sums_frame[ws_id] = 0
         ws_model = context.task.get_ws_model(ws_id=ws_id)
         assert len(ws_model.objects) > 0, f"no obj linked to ws '{ws_id}'"
         for obj_id in ws_model.objects:
@@ -598,40 +603,11 @@ def behaviour_isaac(context: Context, **kwargs):
     now = time.process_time()
     loop_end = now + time_step_sec
     exec_times = []
+    sim_context = SimulationContext()
     while context.simulation_app.is_running():
         if bhv.is_finished(context=context):
             break
         context.world.step(render=render)
-        # frame capture
-        if context.enable_capture:
-            for i in range(len(context.cameras)):
-                camera = context.cameras[i]
-                context.scenario_frames[camera.name].append(capture_camera_image(camera))
-                timestamp_unix = time.time()
-                scenario_start_time = context.log_data[context.scenario.name]["start_time_unix"]
-                timestamp_rel = timestamp_unix - scenario_start_time
-                obs = context.world.get_observations()
-                for ws_id in place_ws_ids:
-                    ws_position = obs[ws_obj_map[ws_id]]["position"]
-                    if ws_id in ws_previous_positions:
-                        ws_displacement = np.linalg.norm(ws_position - ws_previous_positions[ws_id])
-                        ws_displacement_sums_frame[ws_id] += ws_displacement
-                context.frame_logs.append(
-                    {
-                        "camera": camera.name,
-                        "frame_id": context.frame_index,
-                        "filename": f"frame_{context.frame_index:05d}.jpg",
-                        "timestamp_unix": timestamp_unix,
-                        "timestamp_rel": timestamp_rel,
-                        "ee_speed": float(np.linalg.norm(obs[agn_ids[0]]["ee_linear_velocities"])),
-                        "ws_displacement": {
-                            ws_id.n3(graph.namespace_manager): ws_displacement_sums_frame[ws_id]
-                            for ws_id in place_ws_ids
-                        },
-                    }
-                )
-                ws_displacement_sums_frame = {ws_id: 0 for ws_id in place_ws_ids}
-            context.frame_index += 1
         # observations
         obs = context.world.get_observations()
         # behaviour step
@@ -645,6 +621,32 @@ def behaviour_isaac(context: Context, **kwargs):
                 ws_displacement = np.linalg.norm(ws_position - ws_previous_positions[ws_id])
                 ws_displacement_sums[ws_id] += ws_displacement
             ws_previous_positions[ws_id] = ws_position
+
+        # frame capture
+        if context.enable_capture:
+            timestamp_unix = time.time()
+            scenario_start_time = context.log_data[context.scenario.name]["start_time_unix"]
+            timestamp_rel = timestamp_unix - scenario_start_time
+            frame_log = {
+                "cameras": {},
+                "frame_id": context.frame_index,
+                "timestamp_unix": timestamp_unix,
+                "timestamp_rel": timestamp_rel,
+                "sim_time": sim_context.current_time,
+                "ee_speed": float(agn_speed),
+                # copy current values
+                "ws_displacement": dict(ws_displacement_sums),
+            }
+            for i in range(len(context.cameras)):
+                camera = context.cameras[i]
+                context.scenario_frames[camera.name].append(capture_camera_image(camera))
+                frame_log["cameras"][camera.name] = {
+                    "filename": f"{camera.name}/frame_{context.frame_index:05d}.jpg",
+                }
+
+            context.frame_logs.append(frame_log)
+            context.frame_index += 1
+
         # real time check
         exec_times.append(time.process_time() - now)
         while True:

@@ -201,6 +201,10 @@ def capture_camera_image(camera: Camera) -> np.ndarray:
     if rgba is None:
         raise RuntimeError(f"Camera {camera.name} did not return an image")
 
+    if len(rgba.shape) < 3:
+        # invalid image returned at sim startup
+        raise RuntimeError(f"Camera {camera.name} did not return a valid image, shape={rgba.shape}")
+
     # Convert RGBA to RGB
     rgb_image = rgba[:, :, :3]
     return rgb_image
