@@ -1,5 +1,4 @@
 # SPDX-License-Identifier:  GPL-3.0-or-later
-from os.path import exists as os_exists
 import os
 import cv2
 import imageio
@@ -133,7 +132,7 @@ def create_rigid_prim_in_scene(
             asset_path = get_cached_assets_root_path() + asset_path
 
         elif URI_SIM_TYPE_SYS_RES in model.model_types:
-            assert os_exists(
+            assert os.path.exists(
                 asset_path
             ), f"Path in USD model(s) '{usd_model_uris}' does not exists: {asset_path}"
 
@@ -210,9 +209,11 @@ def capture_camera_image(camera: Camera) -> np.ndarray:
     return rgb_image
 
 
-def save_single_frame(i: int, frame: np.ndarray, output_dir: str):
-    file_name = f"frame_{i:05d}.jpg"
-    frame_path = os.path.join(output_dir, file_name)
+def save_single_frame(frame: np.ndarray, filename: str, output_dir: str):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+
+    frame_path = os.path.join(output_dir, filename)
     imageio.imwrite(frame_path, frame)
 
 
@@ -223,12 +224,13 @@ def save_frames(frames: list, output_dir: str, threads: int = 8):
         frames (list): List of frames to save
         capture_root_path (str): Root path for saving captures
     """
-    if not os_exists(output_dir):
+    if not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
     with ThreadPoolExecutor(max_workers=threads) as executor:
         for i, frame in enumerate(frames):
-            executor.submit(save_single_frame, i, frame, output_dir)
+            fn = f"frame_{i:05d}.jpg"
+            executor.submit(save_single_frame, frame, fn, output_dir)
 
 
 def create_video_from_frames(

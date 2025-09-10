@@ -193,20 +193,13 @@ def before_scenario_isaac(context: Context, scenario: Scenario):
         os.makedirs(scr_cap_dir, exist_ok=True)
         context.scenario_capture_folder = scr_cap_dir
         context.frame_index = 0
-        context.scenario_frames = {camera.name: [] for camera in context.cameras}
 
 
 def after_scenario_isaac(context: Context):
-    from bdd_isaacsim_exec.utils import save_frames, create_video_from_frames
+    from bdd_isaacsim_exec.utils import create_video_from_frames
 
     if context.enable_capture:
         for camera in context.cameras:
-            save_frames(
-                frames=context.scenario_frames[camera.name],
-                output_dir=os.path.join(context.scenario_capture_folder, "frames", camera.name),
-            )
-            context.scenario_frames[camera.name] = []
-            print(f"*** Frames saved for camera '{camera.name}'")
             video_path = create_video_from_frames(
                 capture_root_path=os.path.join(context.scenario_capture_folder),
                 camera_name=camera.name,
@@ -624,6 +617,9 @@ def behaviour_isaac(context: Context, **kwargs):
 
         # frame capture
         if context.enable_capture:
+            from concurrent.futures import ThreadPoolExecutor
+            from bdd_isaacsim_exec.utils import save_single_frame
+
             timestamp_unix = time.time()
             scenario_start_time = context.log_data[context.scenario.name]["start_time_unix"]
             timestamp_rel = timestamp_unix - scenario_start_time
@@ -637,12 +633,19 @@ def behaviour_isaac(context: Context, **kwargs):
                 # copy current values
                 "ws_displacement": dict(ws_displacement_sums),
             }
-            for i in range(len(context.cameras)):
-                camera = context.cameras[i]
-                context.scenario_frames[camera.name].append(capture_camera_image(camera))
+            images = {}
+            for camera in context.cameras:
+                img = capture_camera_image(camera)
+                fn = f"frame_{context.frame_index:05d}.jpg"
+                images[camera.name] = {"fn": fn, "img": img}
                 frame_log["cameras"][camera.name] = {
-                    "filename": f"{camera.name}/frame_{context.frame_index:05d}.jpg",
+                    "filename": f"{camera.name}/{fn}",
                 }
+
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                for cam_name, img_info in images.items():
+                    frames_dir = os.path.join(context.scenario_capture_folder, "frames", cam_name)
+                    executor.submit(save_single_frame, img_info["img"], img_info["fn"], frames_dir)
 
             context.frame_logs.append(frame_log)
             context.frame_index += 1
